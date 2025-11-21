@@ -123,8 +123,21 @@ export default function ProjectCreateModal({ isOpen, onClose, onSubmit }: Projec
         progress: 0,
         startDate: new Date(formData.startDate),
         endDate: new Date(formData.endDate),
-        team: formData.team,
-        budget: formData.servicePackage === 'custom' ? formData.budget : (selectedPackage?.price || 0)
+        team: formData.team.map(memberId => ({ 
+          userId: memberId, 
+          name: memberId, 
+          role: 'Developer',
+          joinedAt: new Date()
+        })),
+        budget: formData.servicePackage === 'custom' ? formData.budget : (selectedPackage?.price || 0),
+        priority: 'medium',
+        createdBy: 'current-user',
+        visibility: 'private',
+        permissions: {
+          viewerIds: [],
+          editorIds: [],
+          adminIds: []
+        }
       }
 
       onSubmit(projectData)

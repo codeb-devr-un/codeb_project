@@ -6,6 +6,7 @@ import {
   TrendData,
   AnalyticsMetric 
 } from '@/types/analytics'
+import { AnalysisData } from '@/types/services'
 
 class AnalyticsService {
   async predictProjectCompletion(projectId: string): Promise<ProjectPrediction> {
@@ -259,7 +260,7 @@ class AnalyticsService {
     ]
   }
 
-  async generateInsights(data: any): Promise<string[]> {
+  async generateInsights(data: AnalysisData): Promise<string[]> {
     // AI 기반 인사이트 생성
     const insights: string[] = [
       '현재 프로젝트 진행 속도가 계획 대비 15% 빠르게 진행되고 있습니다.',

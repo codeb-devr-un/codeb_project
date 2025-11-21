@@ -102,6 +102,7 @@ export const taskStatusToString = (status: TaskStatus): string => {
 }
 
 export const stringToTaskStatus = (status: string): TaskStatus => {
+  if (!status) return TaskStatus.TODO
   const normalized = status.toUpperCase().replace(/[\s-]/g, '_')
   return TaskStatus[normalized as keyof typeof TaskStatus] || TaskStatus.TODO
 }
@@ -111,6 +112,7 @@ export const taskPriorityToString = (priority: TaskPriority): string => {
 }
 
 export const stringToTaskPriority = (priority: string): TaskPriority => {
+  if (!priority) return TaskPriority.MEDIUM
   const normalized = priority.toUpperCase()
   return TaskPriority[normalized as keyof typeof TaskPriority] || TaskPriority.MEDIUM
 }

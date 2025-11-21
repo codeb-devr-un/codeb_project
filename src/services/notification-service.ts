@@ -1,5 +1,7 @@
 import { getDatabase, ref, push, set, onValue, off, update, query, orderByChild, limitToLast } from 'firebase/database'
 import { app } from '@/lib/firebase'
+import { NotificationData } from '@/types/services'
+import logger from '@/utils/logger'
 
 export interface Notification {
   id: string
@@ -30,7 +32,7 @@ class NotificationService {
 
       return newNotificationRef.key
     } catch (error) {
-      console.error('Error creating notification:', error)
+      logger.error('Error creating notification', 'NotificationService', error)
       throw error
     }
   }
@@ -52,7 +54,7 @@ class NotificationService {
 
       await Promise.all(promises)
     } catch (error) {
-      console.error('Error creating project notifications:', error)
+      logger.error('Error creating project notifications', 'NotificationService', error)
       throw error
     }
   }
@@ -63,7 +65,7 @@ class NotificationService {
       const notificationRef = ref(this.db, `notifications/${userId}/${notificationId}`)
       await update(notificationRef, { read: true })
     } catch (error) {
-      console.error('Error marking notification as read:', error)
+      logger.error('Error marking notification as read', 'NotificationService', error)
       throw error
     }
   }
@@ -84,7 +86,7 @@ class NotificationService {
         await update(ref(this.db), updates)
       }
     } catch (error) {
-      console.error('Error marking all notifications as read:', error)
+      logger.error('Error marking all notifications as read', 'NotificationService', error)
       throw error
     }
   }
@@ -124,7 +126,7 @@ class NotificationService {
   }
 
   // 시스템 알림 생성 헬퍼
-  async createSystemNotifications(type: string, data: any) {
+  async createSystemNotifications(type: string, data: NotificationData) {
     switch (type) {
       case 'task_assigned':
         await this.createNotification({

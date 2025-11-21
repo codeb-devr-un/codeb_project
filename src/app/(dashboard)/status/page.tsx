@@ -8,6 +8,17 @@ import { getDatabase, ref, onValue, off } from 'firebase/database'
 import { app } from '@/lib/firebase'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Progress } from '@/components/ui/progress'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { 
+  Clock, Calendar, TrendingUp, CheckCircle2, Circle, 
+  Loader2, Activity, Users, DollarSign, MessageSquare,
+  FileText, Palette, Code, TestTube2, Package, BarChart3,
+  Building2, Timer
+} from 'lucide-react'
 
 interface ProjectPhase {
   id: string
@@ -17,6 +28,7 @@ interface ProjectPhase {
   startDate: string
   endDate: string
   description: string
+  icon: any
 }
 
 interface ProjectUpdate {
@@ -39,7 +51,7 @@ export default function CustomerStatusPage() {
 
   // 고객이 아닌 경우 대시보드로 리다이렉트
   useEffect(() => {
-    if (!loading && userProfile && userProfile.role !== 'customer') {
+    if (!loading && userProfile && userProfile.role !== 'customer' && userProfile.role !== 'external') {
       router.push('/dashboard')
     }
   }, [userProfile, loading, router])
@@ -66,7 +78,7 @@ export default function CustomerStatusPage() {
         
         // 고객은 자신의 그룹에 속한 프로젝트를 모두 볼 수 있음
         let filteredProjects = projectsList
-        if (userProfile.role === 'customer') {
+        if (userProfile.role === 'customer' || userProfile.role === 'external') {
           filteredProjects = projectsList.filter(p => 
             // 자신의 프로젝트이거나
             p.clientId === user.uid ||
@@ -102,7 +114,7 @@ export default function CustomerStatusPage() {
           .map(([id, activity]: [string, any]) => ({
             ...activity,
             id,
-            date: activity.timestamp
+            date: activity.timestamp || activity.time || activity.createdAt
           }))
           .filter(activity => {
             // 선택된 프로젝트의 활동만 표시
@@ -138,7 +150,8 @@ export default function CustomerStatusPage() {
         progress: project.status !== 'planning' ? 100 : Math.min(100, progress * 5),
         startDate: project.startDate.toISOString().split('T')[0],
         endDate: new Date(project.startDate.getTime() + totalDays * 0.2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        description: '프로젝트 요구사항 분석 및 기획'
+        description: '프로젝트 요구사항 분석 및 기획',
+        icon: FileText
       },
       {
         id: '2',
@@ -149,7 +162,8 @@ export default function CustomerStatusPage() {
                   project.status === 'design' ? (progress - 20) * 2.5 : 0,
         startDate: new Date(project.startDate.getTime() + totalDays * 0.2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
         endDate: new Date(project.startDate.getTime() + totalDays * 0.4 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        description: 'UI/UX 디자인 및 시안 작업'
+        description: 'UI/UX 디자인 및 시안 작업',
+        icon: Palette
       },
       {
         id: '3',
@@ -160,7 +174,8 @@ export default function CustomerStatusPage() {
                   project.status === 'development' ? (progress - 40) * 1.67 : 0,
         startDate: new Date(project.startDate.getTime() + totalDays * 0.4 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
         endDate: new Date(project.startDate.getTime() + totalDays * 0.8 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        description: '프론트엔드 및 백엔드 개발'
+        description: '프론트엔드 및 백엔드 개발',
+        icon: Code
       },
       {
         id: '4',
@@ -171,7 +186,8 @@ export default function CustomerStatusPage() {
                   project.status === 'testing' ? (progress - 80) * 5 : 0,
         startDate: new Date(project.startDate.getTime() + totalDays * 0.8 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
         endDate: new Date(project.startDate.getTime() + totalDays * 0.95 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        description: '기능 테스트 및 버그 수정'
+        description: '기능 테스트 및 버그 수정',
+        icon: TestTube2
       },
       {
         id: '5',
@@ -180,47 +196,21 @@ export default function CustomerStatusPage() {
         progress: project.status === 'completed' ? 100 : 0,
         startDate: new Date(project.startDate.getTime() + totalDays * 0.95 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
         endDate: project.endDate.toISOString().split('T')[0],
-        description: '서버 배포 및 서비스 오픈'
+        description: '서버 배포 및 서비스 오픈',
+        icon: Package
       }
     ]
 
     return phases
   }
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed': return 'text-green-600'
-      case 'in_progress': return 'text-blue-600'
-      case 'pending': return 'text-gray-400'
-      default: return 'text-gray-400'
-    }
-  }
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'completed': return '✅'
-      case 'in_progress': return '🔄'
-      case 'pending': return '⏳'
-      default: return '⏳'
-    }
-  }
-
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'completed': return '완료'
-      case 'in_progress': return '진행중'
-      case 'pending': return '대기중'
-      default: return '대기중'
-    }
-  }
-
   const getUpdateIcon = (type: string) => {
     switch (type) {
-      case 'development': return '💻'
-      case 'design': return '🎨'
-      case 'planning': return '📋'
-      case 'testing': return '🧪'
-      default: return '📌'
+      case 'development': return Code
+      case 'design': return Palette
+      case 'planning': return FileText
+      case 'testing': return TestTube2
+      default: return Activity
     }
   }
 
@@ -234,10 +224,10 @@ export default function CustomerStatusPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen">
+      <div className="flex items-center justify-center h-96">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-gray-600">프로젝트 정보를 불러오는 중...</p>
+          <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
+          <p className="mt-4 text-muted-foreground">프로젝트 정보를 불러오는 중...</p>
         </div>
       </div>
     )
@@ -245,220 +235,279 @@ export default function CustomerStatusPage() {
 
   if (projects.length === 0) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">진행 중인 프로젝트가 없습니다</h2>
-          <p className="text-gray-600">프로젝트가 시작되면 여기에서 진행 상황을 확인할 수 있습니다.</p>
-        </div>
+      <div className="flex items-center justify-center h-96">
+        <Card className="w-full max-w-md">
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <BarChart3 className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+              <h2 className="text-xl font-semibold mb-2">진행 중인 프로젝트가 없습니다</h2>
+              <p className="text-muted-foreground">프로젝트가 시작되면 여기에서 진행 상황을 확인할 수 있습니다.</p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     )
   }
 
   return (
-    <div className="max-w-7xl mx-auto">
+    <div className="w-full max-w-[1920px] mx-auto px-6 py-6 space-y-6">
       {/* 헤더 */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">프로젝트 현황</h1>
-        <p className="text-gray-600 mt-1">
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">프로젝트 현황</h1>
+        <p className="text-muted-foreground mt-1">
           {userProfile?.group ? `${userProfile.company || '우리 회사'}의 모든 프로젝트 진행 상황을 확인하세요` : '프로젝트의 진행 상황을 확인하세요'}
         </p>
       </div>
 
       {/* 프로젝트 선택 탭 */}
       {projects.length > 1 && (
-        <div className="mb-6">
-          <div className="border-b border-gray-200">
-            <nav className="-mb-px flex space-x-8" aria-label="Tabs">
-              {projects.map((project) => (
-                <button
-                  key={project.id}
-                  onClick={() => setSelectedProject(project)}
-                  className={`
-                    py-2 px-1 border-b-2 font-medium text-sm transition-colors
-                    ${selectedProject?.id === project.id
-                      ? 'border-primary text-primary'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    }
-                  `}
-                >
-                  {project.name}
-                </button>
-              ))}
-            </nav>
-          </div>
-        </div>
+        <Tabs value={selectedProject?.id} onValueChange={(value) => {
+          const project = projects.find(p => p.id === value)
+          if (project) setSelectedProject(project)
+        }}>
+          <TabsList>
+            {projects.map((project) => (
+              <TabsTrigger key={project.id} value={project.id}>
+                {project.name}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
       )}
 
       {selectedProject && (
         <>
           {/* 프로젝트 정보 */}
-          <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-6 mb-8">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">{selectedProject.name}</h3>
-                <p className="text-sm text-gray-600 mt-1">{selectedProject.description}</p>
-              </div>
-              <span className="text-2xl font-bold text-primary">{selectedProject.progress}%</span>
-            </div>
-            <div className="w-full bg-white rounded-full h-3 mb-4">
-              <motion.div
-                initial={{ width: 0 }}
-                animate={{ width: `${selectedProject.progress}%` }}
-                transition={{ duration: 1, ease: "easeOut" }}
-                className="bg-gradient-to-r from-primary to-purple-600 h-3 rounded-full"
-              />
-            </div>
-            <div className="grid grid-cols-3 gap-4 text-center">
-              <div>
-                <div className="text-lg font-semibold text-gray-900">
-                  {formatDate(selectedProject.startDate)}
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-lg font-semibold">{selectedProject.name}</h3>
+                  <p className="text-sm text-muted-foreground mt-1">{selectedProject.description}</p>
                 </div>
-                <div className="text-sm text-gray-600">시작일</div>
-              </div>
-              <div>
-                <div className="text-lg font-semibold text-blue-600">
-                  {Math.ceil((new Date().getTime() - selectedProject.startDate.getTime()) / (1000 * 60 * 60 * 24))}일
+                <div className="text-right">
+                  <div className="text-2xl font-bold text-primary">{selectedProject.progress}%</div>
+                  <Badge variant="outline" className="mt-1">
+                    {selectedProject.status === 'planning' && '기획'}
+                    {selectedProject.status === 'design' && '디자인'}
+                    {selectedProject.status === 'development' && '개발'}
+                    {selectedProject.status === 'testing' && '테스트'}
+                    {selectedProject.status === 'completed' && '완료'}
+                  </Badge>
                 </div>
-                <div className="text-sm text-gray-600">진행일</div>
               </div>
-              <div>
-                <div className="text-lg font-semibold text-green-600">
-                  {formatDate(selectedProject.endDate)}
+              <Progress value={selectedProject.progress} className="h-3 mb-4" />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+                <div>
+                  <div className="flex items-center justify-center gap-2 text-muted-foreground mb-1">
+                    <Calendar className="h-4 w-4" />
+                    <span className="text-sm">시작일</span>
+                  </div>
+                  <div className="font-semibold">
+                    {formatDate(selectedProject.startDate)}
+                  </div>
                 </div>
-                <div className="text-sm text-gray-600">완료 예정일</div>
+                <div>
+                  <div className="flex items-center justify-center gap-2 text-muted-foreground mb-1">
+                    <Timer className="h-4 w-4" />
+                    <span className="text-sm">진행일</span>
+                  </div>
+                  <div className="font-semibold text-primary">
+                    {Math.ceil((new Date().getTime() - selectedProject.startDate.getTime()) / (1000 * 60 * 60 * 24))}일
+                  </div>
+                </div>
+                <div>
+                  <div className="flex items-center justify-center gap-2 text-muted-foreground mb-1">
+                    <Clock className="h-4 w-4" />
+                    <span className="text-sm">완료 예정일</span>
+                  </div>
+                  <div className="font-semibold">
+                    {formatDate(selectedProject.endDate)}
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* 프로젝트 단계별 진행상황 */}
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">단계별 진행상황</h3>
-              <div className="space-y-4">
-                {getProjectPhases(selectedProject).map((phase, index) => (
-                  <motion.div
-                    key={phase.id}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                    className="bg-white border rounded-lg p-4"
-                  >
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-3">
-                        <span className="text-xl">{getStatusIcon(phase.status)}</span>
-                        <h4 className="font-medium text-gray-900">{phase.name}</h4>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className={`text-sm font-medium ${getStatusColor(phase.status)}`}>
-                          {getStatusLabel(phase.status)}
-                        </span>
-                        <span className="text-sm text-gray-500">{phase.progress}%</span>
-                      </div>
-                    </div>
-                    
-                    <div className="w-full bg-gray-200 rounded-full h-2 mb-3">
-                      <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: `${phase.progress}%` }}
-                        transition={{ duration: 0.8, delay: index * 0.1 }}
-                        className={`h-2 rounded-full ${
-                          phase.status === 'completed' ? 'bg-green-500' :
-                          phase.status === 'in_progress' ? 'bg-blue-500' :
-                          'bg-gray-400'
-                        }`}
-                      />
-                    </div>
-                    
-                    <div className="flex justify-between text-xs text-gray-500 mb-2">
-                      <span>{phase.startDate}</span>
-                      <span>{phase.endDate}</span>
-                    </div>
-                    
-                    <p className="text-sm text-gray-600">{phase.description}</p>
-                  </motion.div>
-                ))}
-              </div>
+              <Card>
+                <CardHeader>
+                  <CardTitle>단계별 진행상황</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {getProjectPhases(selectedProject).map((phase, index) => {
+                      const Icon = phase.icon
+                      return (
+                        <motion.div
+                          key={phase.id}
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: index * 0.1 }}
+                          className="border rounded-lg p-4"
+                        >
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-3">
+                              <div className={`p-2 rounded-lg ${
+                                phase.status === 'completed' ? 'bg-green-100' :
+                                phase.status === 'in_progress' ? 'bg-blue-100' :
+                                'bg-gray-100'
+                              }`}>
+                                <Icon className={`h-5 w-5 ${
+                                  phase.status === 'completed' ? 'text-green-600' :
+                                  phase.status === 'in_progress' ? 'text-blue-600' :
+                                  'text-gray-400'
+                                }`} />
+                              </div>
+                              <h4 className="font-medium">{phase.name}</h4>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {phase.status === 'completed' && <CheckCircle2 className="h-4 w-4 text-green-600" />}
+                              {phase.status === 'in_progress' && <Circle className="h-4 w-4 text-blue-600" />}
+                              {phase.status === 'pending' && <Circle className="h-4 w-4 text-gray-400" />}
+                              <Badge variant={
+                                phase.status === 'completed' ? 'default' :
+                                phase.status === 'in_progress' ? 'secondary' :
+                                'outline'
+                              }>
+                                {phase.status === 'completed' && '완료'}
+                                {phase.status === 'in_progress' && '진행중'}
+                                {phase.status === 'pending' && '대기중'}
+                              </Badge>
+                              <span className="text-sm text-muted-foreground">{phase.progress}%</span>
+                            </div>
+                          </div>
+                          
+                          <Progress value={phase.progress} className="h-2 mb-3" />
+                          
+                          <div className="flex justify-between text-xs text-muted-foreground mb-2">
+                            <span>{phase.startDate}</span>
+                            <span>{phase.endDate}</span>
+                          </div>
+                          
+                          <p className="text-sm text-muted-foreground">{phase.description}</p>
+                        </motion.div>
+                      )
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
             </div>
 
             {/* 최근 업데이트 및 팀 정보 */}
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">최근 업데이트</h3>
-              <div className="space-y-4 mb-8">
-                {activities.length > 0 ? (
-                  activities.slice(0, 5).map((update, index) => (
-                    <motion.div
-                      key={update.id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.1 }}
-                      className="bg-white border rounded-lg p-4 hover:shadow-md transition-shadow"
-                    >
-                      <div className="flex items-start gap-3">
-                        <span className="text-xl">{getUpdateIcon(update.type)}</span>
-                        <div className="flex-1">
-                          <h4 className="font-medium text-gray-900 mb-1">{update.title}</h4>
-                          <p className="text-sm text-gray-600 mb-2">{update.description}</p>
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs text-gray-500">
-                              {new Date(update.date).toLocaleDateString('ko-KR')}
-                            </span>
-                            {update.projectId !== selectedProject.id && (
-                              <span className="text-xs text-blue-600 font-medium">
-                                {update.projectName}
-                              </span>
-                            )}
-                          </div>
-                        </div>
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>최근 업데이트</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {activities.length > 0 ? (
+                      activities.slice(0, 5).map((update, index) => {
+                        const Icon = getUpdateIcon(update.type)
+                        return (
+                          <motion.div
+                            key={update.id}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: index * 0.1 }}
+                            className="flex gap-3"
+                          >
+                            <div className={`p-2 rounded-lg h-fit ${
+                              update.type === 'development' ? 'bg-blue-100' :
+                              update.type === 'design' ? 'bg-purple-100' :
+                              update.type === 'planning' ? 'bg-green-100' :
+                              'bg-orange-100'
+                            }`}>
+                              <Icon className={`h-4 w-4 ${
+                                update.type === 'development' ? 'text-blue-600' :
+                                update.type === 'design' ? 'text-purple-600' :
+                                update.type === 'planning' ? 'text-green-600' :
+                                'text-orange-600'
+                              }`} />
+                            </div>
+                            <div className="flex-1">
+                              <h4 className="font-medium text-sm">{update.title}</h4>
+                              <p className="text-sm text-muted-foreground mb-1">{update.description}</p>
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs text-muted-foreground">
+                                  {new Date(update.date).toLocaleDateString('ko-KR')}
+                                </span>
+                                {update.projectId !== selectedProject.id && (
+                                  <Badge variant="outline" className="text-xs">
+                                    {update.projectName}
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          </motion.div>
+                        )
+                      })
+                    ) : (
+                      <div className="text-center py-8">
+                        <Activity className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                        <p className="text-muted-foreground">아직 업데이트가 없습니다</p>
                       </div>
-                    </motion.div>
-                  ))
-                ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    아직 업데이트가 없습니다
+                    )}
                   </div>
-                )}
-              </div>
+                </CardContent>
+              </Card>
 
               {/* 프로젝트 상세 정보 */}
-              <div className="bg-white border rounded-lg p-4">
-                <h4 className="font-medium text-gray-900 mb-3">프로젝트 정보</h4>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">예산</span>
-                    <span className="font-medium text-gray-900">
-                      {new Intl.NumberFormat('ko-KR', {
-                        style: 'currency',
-                        currency: 'KRW',
-                        maximumFractionDigits: 0,
-                      }).format(selectedProject.budget)}
-                    </span>
+              <Card>
+                <CardHeader>
+                  <CardTitle>프로젝트 정보</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <DollarSign className="h-4 w-4" />
+                        <span className="text-sm">예산</span>
+                      </div>
+                      <span className="font-medium">
+                        {new Intl.NumberFormat('ko-KR', {
+                          style: 'currency',
+                          currency: 'KRW',
+                          maximumFractionDigits: 0,
+                        }).format(selectedProject.budget)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Users className="h-4 w-4" />
+                        <span className="text-sm">팀 규모</span>
+                      </div>
+                      <span className="font-medium">
+                        {selectedProject.team?.length || 0}명
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <TrendingUp className="h-4 w-4" />
+                        <span className="text-sm">현재 상태</span>
+                      </div>
+                      <Badge>
+                        {selectedProject.status === 'planning' && '기획'}
+                        {selectedProject.status === 'design' && '디자인'}
+                        {selectedProject.status === 'development' && '개발'}
+                        {selectedProject.status === 'testing' && '테스트'}
+                        {selectedProject.status === 'completed' && '완료'}
+                      </Badge>
+                    </div>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">팀 규모</span>
-                    <span className="font-medium text-gray-900">
-                      {selectedProject.team?.length || 0}명
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">현재 상태</span>
-                    <span className="font-medium text-gray-900">
-                      {selectedProject.status === 'planning' && '기획'}
-                      {selectedProject.status === 'design' && '디자인'}
-                      {selectedProject.status === 'development' && '개발'}
-                      {selectedProject.status === 'testing' && '테스트'}
-                      {selectedProject.status === 'completed' && '완료'}
-                    </span>
-                  </div>
-                </div>
 
-                {/* 프로젝트 상세 보기 링크 */}
-                <Link
-                  href={`/support?project=${selectedProject.id}`}
-                  className="mt-4 block w-full text-center bg-primary text-white py-2 px-4 rounded-lg hover:bg-primary-dark transition-colors"
-                >
-                  문의하기
-                </Link>
-              </div>
+                  {/* 프로젝트 상세 보기 링크 */}
+                  <Button asChild className="w-full mt-4">
+                    <Link href={`/support?project=${selectedProject.id}`}>
+                      <MessageSquare className="mr-2 h-4 w-4" />
+                      문의하기
+                    </Link>
+                  </Button>
+                </CardContent>
+              </Card>
             </div>
           </div>
         </>

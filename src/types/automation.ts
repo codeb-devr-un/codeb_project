@@ -50,7 +50,7 @@ export interface WorkflowTemplate {
   name: string
   description: string
   category: string
-  icon: string
+  icon: any
   trigger: Partial<WorkflowTrigger>
   actions: Partial<WorkflowAction>[]
 }

@@ -65,6 +65,53 @@
         ".write": "auth != null",
         ".indexOn": ["time", "read", "createdAt"]
       }
+    },
+    "operators": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "$operatorId": {
+        ".read": "auth != null",
+        ".write": "$operatorId === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'admin'",
+        ".indexOn": ["isOnline", "isAvailable", "activeChats", "lastSeen"]
+      }
+    },
+    "chatAssignments": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      ".indexOn": ["operatorId", "customerId", "status", "createdAt"]
+    },
+    "chatRequests": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      ".indexOn": ["status", "createdAt"]
+    },
+    "customerAssignments": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "$customerId": {
+        ".read": "$customerId === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'admin'",
+        ".write": "auth != null"
+      }
+    },
+    "tasks": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      ".indexOn": ["status", "priority", "assignee", "projectId", "createdAt"]
+    },
+    "activities": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      ".indexOn": ["projectId", "timestamp", "type"]
+    },
+    "stats": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "daily": {
+        "$userId": {
+          ".read": "$userId === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'admin'",
+          ".write": "$userId === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'admin'"
+        }
+      }
     }
   }
 }

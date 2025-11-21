@@ -2,6 +2,7 @@ import { storage, database } from '@/lib/firebase'
 import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
 import { ref as dbRef, push, set, get, remove, query, orderByChild, equalTo } from 'firebase/database'
 import { v4 as uuidv4 } from 'uuid'
+import logger from '@/utils/logger'
 
 export interface FileMetadata {
   id: string
@@ -88,7 +89,7 @@ class FileService {
           })
         }
       } catch (error) {
-        console.error(`Error uploading file ${file.name}:`, error)
+        logger.error(`Error uploading file ${file.name}`, 'FileService', error)
         throw error
       }
     }
@@ -159,7 +160,7 @@ class FileService {
         })
       }
     } catch (error) {
-      console.error('Error deleting file:', error)
+      logger.error('Error deleting file', 'FileService', error)
       throw error
     }
   }

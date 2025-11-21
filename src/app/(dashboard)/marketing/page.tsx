@@ -288,7 +288,7 @@ export default function MarketingPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="w-full max-w-[1920px] mx-auto px-6 py-6 space-y-6">
       {/* 헤더 */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>

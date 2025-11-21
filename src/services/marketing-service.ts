@@ -1,5 +1,6 @@
 import { database } from '@/lib/firebase'
 import { ref as dbRef, push, set, get, update, remove, onValue, off } from 'firebase/database'
+import { MarketingActivity } from '@/types/services'
 
 export interface MarketingLead {
   id: string
@@ -184,13 +185,13 @@ class MarketingService {
   }
 
   // 활동 로그 가져오기
-  async getActivities(leadId?: string): Promise<any[]> {
+  async getActivities(leadId?: string): Promise<MarketingActivity[]> {
     const activitiesRef = dbRef(database, 'marketing/activities')
     const snapshot = await get(activitiesRef)
     
     if (!snapshot.exists()) return []
     
-    const activities: any[] = []
+    const activities: MarketingActivity[] = []
     snapshot.forEach((child) => {
       const activity = { id: child.key!, ...child.val() }
       if (!leadId || activity.leadId === leadId) {

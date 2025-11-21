@@ -39,7 +39,7 @@ export default function InvitePage() {
         return
       }
 
-      if (invite.status !== 'active') {
+      if (invite.status !== 'pending') {
         setError('이미 사용되었거나 취소된 초대입니다.')
         setLoading(false)
         return

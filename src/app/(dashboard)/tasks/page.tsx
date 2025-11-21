@@ -1,14 +1,28 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { useAuth } from '@/lib/auth-context'
-import { motion, AnimatePresence } from 'framer-motion'
-import taskService, { Task, KanbanColumn } from '@/services/task-service'
+import { motion } from 'framer-motion'
+import taskService, { Task } from '@/services/task-service'
 import { TaskStatus, TaskPriority } from '@/types/task'
 import { getDatabase, ref, onValue, off } from 'firebase/database'
 import { app } from '@/lib/firebase'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { 
+  Search, Plus, Edit2, Trash2, Calendar, Clock, CheckCircle,
+  AlertCircle, FolderOpen, User, CalendarRange, SortAsc
+} from 'lucide-react'
 
 interface Project {
   id: string
@@ -31,7 +45,6 @@ export default function TasksPage() {
   const [selectedPriority, setSelectedPriority] = useState<string>('all')
   const [searchTerm, setSearchTerm] = useState('')
   const [sortBy, setSortBy] = useState<'dueDate' | 'priority' | 'createdAt'>('dueDate')
-  const [viewMode, setViewMode] = useState<'list' | 'board'>('list')
   const [showModal, setShowModal] = useState(false)
   const [editingTask, setEditingTask] = useState<TaskWithProject | null>(null)
 
@@ -116,7 +129,7 @@ export default function TasksPage() {
   }, [projects])
 
   // 태스크 필터링 및 정렬
-  const filteredTasks = React.useMemo(() => {
+  const filteredTasks = useMemo(() => {
     let filtered = tasks
 
     // 프로젝트 필터
@@ -303,514 +316,483 @@ export default function TasksPage() {
     setShowModal(true)
   }
 
-  const statusLabels: Record<string, string> = {
-    'todo': '할 일',
-    'in-progress': '진행 중',
-    'in_progress': '진행 중',
-    'review': '검토',
-    'done': '완료',
-    'backlog': '대기'
+  const statusConfig = {
+    'todo': { label: '할 일', variant: 'outline' as const, icon: AlertCircle },
+    'in-progress': { label: '진행 중', variant: 'default' as const, icon: Clock },
+    'in_progress': { label: '진행 중', variant: 'default' as const, icon: Clock },
+    'review': { label: '검토', variant: 'secondary' as const, icon: CheckCircle },
+    'done': { label: '완료', variant: 'default' as const, icon: CheckCircle },
+    'backlog': { label: '대기', variant: 'outline' as const, icon: AlertCircle }
   }
 
-  const statusColors: Record<string, string> = {
-    'todo': 'bg-gray-100 text-gray-700',
-    'in-progress': 'bg-blue-100 text-blue-700',
-    'in_progress': 'bg-blue-100 text-blue-700',
-    'review': 'bg-purple-100 text-purple-700',
-    'done': 'bg-green-100 text-green-700',
-    'backlog': 'bg-gray-100 text-gray-700'
-  }
-
-  const priorityColors: Record<string, string> = {
-    'low': 'bg-green-100 text-green-700',
-    'medium': 'bg-yellow-100 text-yellow-700',
-    'high': 'bg-orange-100 text-orange-700',
-    'urgent': 'bg-red-100 text-red-700'
-  }
-
-  const priorityLabels: Record<string, string> = {
-    'low': '낮음',
-    'medium': '보통',
-    'high': '높음',
-    'urgent': '긴급'
+  const priorityConfig = {
+    'low': { label: '낮음', variant: 'outline' as const, color: 'text-green-600' },
+    'medium': { label: '보통', variant: 'secondary' as const, color: 'text-yellow-600' },
+    'high': { label: '높음', variant: 'default' as const, color: 'text-orange-600' },
+    'urgent': { label: '긴급', variant: 'destructive' as const, color: 'text-red-600' }
   }
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
+      <div className="flex items-center justify-center h-96">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
+    <div className="w-full max-w-[1920px] mx-auto px-6 py-6 space-y-6">
       {/* 헤더 */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">작업 관리</h1>
-          <p className="text-gray-600 mt-1">모든 프로젝트의 작업을 한눈에 관리합니다.</p>
+          <h1 className="text-3xl font-bold tracking-tight">작업 관리</h1>
+          <p className="text-muted-foreground mt-1">모든 프로젝트의 작업을 한눈에 관리합니다.</p>
         </div>
         
-        {(userProfile?.role === 'admin' || userProfile?.role === 'manager') && (
-          <button
-            onClick={() => setShowModal(true)}
-            className="btn btn-primary"
-          >
-            + 새 작업
-          </button>
+        {(userProfile?.role === 'admin' || userProfile?.role === 'developer' || userProfile?.role === 'manager') && (
+          <Button onClick={() => setShowModal(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            새 작업
+          </Button>
         )}
+      </div>
+
+      {/* 통계 카드 */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">전체 작업</p>
+                <p className="text-2xl font-bold">{tasks.length}</p>
+              </div>
+              <AlertCircle className="h-8 w-8 text-muted-foreground" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">진행 중</p>
+                <p className="text-2xl font-bold text-blue-600">
+                  {tasks.filter(t => (t.status as any) === 'in-progress' || (t.status as any) === 'in_progress' || t.status === TaskStatus.IN_PROGRESS).length}
+                </p>
+              </div>
+              <Clock className="h-8 w-8 text-blue-600" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">오늘 마감</p>
+                <p className="text-2xl font-bold text-orange-600">
+                  {tasks.filter(t => {
+                    if (!t.dueDate) return false
+                    const today = new Date().toDateString()
+                    const dueDate = new Date(t.dueDate).toDateString()
+                    return today === dueDate
+                  }).length}
+                </p>
+              </div>
+              <Calendar className="h-8 w-8 text-orange-600" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">완료</p>
+                <p className="text-2xl font-bold text-green-600">
+                  {tasks.filter(t => (t.status as any) === 'done' || t.status === TaskStatus.DONE).length}
+                </p>
+              </div>
+              <CheckCircle className="h-8 w-8 text-green-600" />
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* 필터 및 검색 */}
       <div className="space-y-4">
         {/* 검색 */}
-        <div className="flex-1">
-          <div className="relative">
-            <input
+        <div className="flex items-center gap-4">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+            <Input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="🔍 작업 검색..."
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+              placeholder="작업 검색..."
+              className="pl-10"
             />
-            <span className="absolute left-3 top-2.5 text-gray-400">🔍</span>
           </div>
+          
+          {/* 정렬 옵션 */}
+          <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
+            <SelectTrigger className="w-[160px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="dueDate">
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4" />
+                  마감일순
+                </div>
+              </SelectItem>
+              <SelectItem value="priority">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4" />
+                  우선순위순
+                </div>
+              </SelectItem>
+              <SelectItem value="createdAt">
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4" />
+                  최신순
+                </div>
+              </SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         {/* 프로젝트 필터 */}
         <div className="flex gap-2 flex-wrap">
-          <button
+          <Button
+            variant={selectedProject === 'all' ? 'default' : 'outline'}
+            size="sm"
             onClick={() => setSelectedProject('all')}
-            className={`px-4 py-2 rounded-lg transition-colors ${
-              selectedProject === 'all' 
-                ? 'bg-primary text-white' 
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
           >
-            📁 모든 프로젝트
-          </button>
+            <FolderOpen className="mr-2 h-4 w-4" />
+            모든 프로젝트
+          </Button>
           {projects.map(project => (
-            <button
+            <Button
               key={project.id}
+              variant={selectedProject === project.id ? 'default' : 'outline'}
+              size="sm"
               onClick={() => setSelectedProject(project.id)}
-              className={`px-4 py-2 rounded-lg transition-colors ${
-                selectedProject === project.id 
-                  ? 'bg-primary text-white' 
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
             >
               {project.name}
-            </button>
+            </Button>
           ))}
         </div>
 
         {/* 상태 및 우선순위 필터 */}
-        <div className="flex gap-4 flex-wrap">
+        <div className="flex flex-col sm:flex-row gap-4">
           {/* 상태 필터 */}
-          <div className="flex gap-2">
-            <span className="text-sm text-gray-600 py-2">상태:</span>
-            <button
-              onClick={() => setSelectedStatus('all')}
-              className={`px-3 py-1 rounded-lg text-sm transition-colors ${
-                selectedStatus === 'all' 
-                  ? 'bg-gray-800 text-white' 
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              전체
-            </button>
-            {Object.entries(statusLabels).map(([status, label]) => (
-              <button
-                key={status}
-                onClick={() => setSelectedStatus(status)}
-                className={`px-3 py-1 rounded-lg text-sm transition-colors ${
-                  selectedStatus === status 
-                    ? `${statusColors[status]}` 
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm text-muted-foreground">상태:</span>
+            <Tabs value={selectedStatus} onValueChange={setSelectedStatus}>
+              <TabsList>
+                <TabsTrigger value="all">전체</TabsTrigger>
+                {Object.entries(statusConfig).map(([status, config]) => (
+                  <TabsTrigger key={status} value={status}>
+                    {config.label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
           </div>
 
           {/* 우선순위 필터 */}
-          <div className="flex gap-2">
-            <span className="text-sm text-gray-600 py-2">우선순위:</span>
-            <button
-              onClick={() => setSelectedPriority('all')}
-              className={`px-3 py-1 rounded-lg text-sm transition-colors ${
-                selectedPriority === 'all' 
-                  ? 'bg-gray-800 text-white' 
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              전체
-            </button>
-            {Object.entries(priorityLabels).map(([priority, label]) => (
-              <button
-                key={priority}
-                onClick={() => setSelectedPriority(priority)}
-                className={`px-3 py-1 rounded-lg text-sm transition-colors ${
-                  selectedPriority === priority 
-                    ? `${priorityColors[priority]}` 
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* 정렬 옵션 */}
-        <div className="flex gap-2">
-          <span className="text-sm text-gray-600 py-2">정렬:</span>
-          {[
-            { value: 'dueDate', label: '마감일순', icon: '📅' },
-            { value: 'priority', label: '우선순위순', icon: '⚡' },
-            { value: 'createdAt', label: '최신순', icon: '🕐' }
-          ].map(sort => (
-            <button
-              key={sort.value}
-              onClick={() => setSortBy(sort.value as any)}
-              className={`px-3 py-1 rounded-lg text-sm transition-colors ${
-                sortBy === sort.value 
-                  ? 'bg-primary text-white' 
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              {sort.icon} {sort.label}
-            </button>
-          ))}
-        </div>
-
-        {/* 통계 */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-white rounded-lg p-4 shadow-sm">
-            <div className="text-sm text-gray-600">전체 작업</div>
-            <div className="text-2xl font-bold text-gray-900">{tasks.length}</div>
-          </div>
-          <div className="bg-white rounded-lg p-4 shadow-sm">
-            <div className="text-sm text-gray-600">진행 중</div>
-            <div className="text-2xl font-bold text-blue-600">
-              {tasks.filter(t => (t.status as any) === 'in-progress' || (t.status as any) === 'in_progress' || t.status === TaskStatus.IN_PROGRESS).length}
-            </div>
-          </div>
-          <div className="bg-white rounded-lg p-4 shadow-sm">
-            <div className="text-sm text-gray-600">오늘 마감</div>
-            <div className="text-2xl font-bold text-orange-600">
-              {tasks.filter(t => {
-                if (!t.dueDate) return false
-                const today = new Date().toDateString()
-                const dueDate = new Date(t.dueDate).toDateString()
-                return today === dueDate
-              }).length}
-            </div>
-          </div>
-          <div className="bg-white rounded-lg p-4 shadow-sm">
-            <div className="text-sm text-gray-600">완료</div>
-            <div className="text-2xl font-bold text-green-600">
-              {tasks.filter(t => (t.status as any) === 'done' || t.status === TaskStatus.DONE).length}
-            </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm text-muted-foreground">우선순위:</span>
+            <Tabs value={selectedPriority} onValueChange={setSelectedPriority}>
+              <TabsList>
+                <TabsTrigger value="all">전체</TabsTrigger>
+                {Object.entries(priorityConfig).map(([priority, config]) => (
+                  <TabsTrigger key={priority} value={priority}>
+                    {config.label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
           </div>
         </div>
       </div>
 
       {/* 작업 목록 */}
       {filteredTasks.length === 0 ? (
-        <div className="bg-white rounded-xl shadow-sm p-12 text-center">
-          <div className="text-gray-400 mb-4">
+        <Card className="p-12 text-center">
+          <div className="text-muted-foreground mb-4">
             <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
             </svg>
           </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
+          <h3 className="text-lg font-medium mb-2">
             {searchTerm || selectedProject !== 'all' || selectedStatus !== 'all' 
               ? '검색 결과가 없습니다' 
               : '작업이 없습니다'}
           </h3>
-          <p className="text-gray-600">
+          <p className="text-muted-foreground">
             {searchTerm || selectedProject !== 'all' || selectedStatus !== 'all'
               ? '다른 검색 조건을 시도해보세요.'
               : '새로운 작업을 생성해보세요.'}
           </p>
-        </div>
+        </Card>
       ) : (
-        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-          <div className="divide-y divide-gray-200">
-            {filteredTasks.map((task) => (
-              <motion.div
-                key={task.id}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="p-4 hover:bg-gray-50 transition-colors"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1">
-                    <div className="flex items-start gap-3">
-                      <input
-                        type="checkbox"
-                        checked={(task.status as any) === 'done' || task.status === TaskStatus.DONE}
-                        onChange={async () => {
-                          const newStatus = ((task.status as any) === 'done' || task.status === TaskStatus.DONE) ? TaskStatus.TODO : TaskStatus.DONE
-                          await taskService.updateTask(task.projectId, task.id, {
-                            status: newStatus,
-                            columnId: newStatus === TaskStatus.DONE ? 'done' : 'todo'
-                          })
-                          await taskService.updateProjectProgress(task.projectId)
-                        }}
-                        className="mt-1"
-                      />
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className={`font-medium ${(task.status as any) === 'done' || task.status === TaskStatus.DONE ? 'line-through text-gray-500' : ''}`}>
-                            {task.title}
-                          </h3>
-                          <span className={`px-2 py-0.5 text-xs rounded-full ${priorityColors[task.priority]}`}>
-                            {priorityLabels[task.priority]}
-                          </span>
-                          <span className={`px-2 py-0.5 text-xs rounded-full ${statusColors[task.status]}`}>
-                            {statusLabels[task.status]}
-                          </span>
-                        </div>
-                        
-                        {task.description && (
-                          <p className="text-sm text-gray-600 mb-2">{task.description}</p>
-                        )}
-                        
-                        <div className="flex items-center gap-4 text-sm text-gray-500">
-                          <Link href={`/projects/${task.projectId}`} className="hover:text-primary">
-                            📁 {task.projectName}
-                          </Link>
+        <Card>
+          <div className="divide-y">
+            {filteredTasks.map((task) => {
+              const statusInfo = statusConfig[task.status] || statusConfig['todo']
+              const priorityInfo = priorityConfig[task.priority] || priorityConfig['medium']
+              
+              return (
+                <motion.div
+                  key={task.id}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="p-4 hover:bg-muted/50 transition-colors"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-start gap-3">
+                        <Checkbox
+                          checked={(task.status as any) === 'done' || task.status === TaskStatus.DONE}
+                          onCheckedChange={async (checked) => {
+                            const newStatus = checked ? TaskStatus.DONE : TaskStatus.TODO
+                            await taskService.updateTask(task.projectId, task.id, {
+                              status: newStatus,
+                              columnId: newStatus === TaskStatus.DONE ? 'done' : 'todo'
+                            })
+                            await taskService.updateProjectProgress(task.projectId)
+                          }}
+                          className="mt-1"
+                        />
+                        <div className="flex-1 space-y-1">
+                          <div className="flex items-center gap-2">
+                            <h3 className={`font-medium ${(task.status as any) === 'done' || task.status === TaskStatus.DONE ? 'line-through text-muted-foreground' : ''}`}>
+                              {task.title}
+                            </h3>
+                            <Badge variant={priorityInfo.variant} className={priorityInfo.color}>
+                              {priorityInfo.label}
+                            </Badge>
+                            <Badge variant={statusInfo.variant}>
+                              {statusInfo.label}
+                            </Badge>
+                          </div>
                           
-                          {task.assignee && (
-                            <span>👤 {task.assignee}</span>
+                          {task.description && (
+                            <p className="text-sm text-muted-foreground">{task.description}</p>
                           )}
                           
-                          {task.dueDate && (
-                            <span className={
-                              new Date(task.dueDate) < new Date() && task.status !== 'done'
-                                ? 'text-red-600' 
-                                : ''
-                            }>
-                              📅 {new Date(task.dueDate).toLocaleDateString('ko-KR')}
-                            </span>
-                          )}
+                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                            <Link 
+                              href={`/projects/${task.projectId}`} 
+                              className="flex items-center gap-1 hover:text-primary"
+                            >
+                              <FolderOpen className="h-3 w-3" />
+                              {task.projectName}
+                            </Link>
+                            
+                            {task.assignee && (
+                              <span className="flex items-center gap-1">
+                                <User className="h-3 w-3" />
+                                {task.assignee}
+                              </span>
+                            )}
+                            
+                            {task.dueDate && (
+                              <span className={`flex items-center gap-1 ${
+                                new Date(task.dueDate) < new Date() && task.status !== 'done'
+                                  ? 'text-destructive' 
+                                  : ''
+                              }`}>
+                                <Calendar className="h-3 w-3" />
+                                {new Date(task.dueDate).toLocaleDateString('ko-KR')}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
+                    
+                    <div className="flex gap-1">
+                      {(userProfile?.role === 'admin' || userProfile?.role === 'developer' || userProfile?.role === 'manager' || 
+                        task.createdBy === user?.uid) && (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEdit(task)}
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDelete(task)}
+                            className="text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
                   </div>
-                  
-                  <div className="flex gap-2">
-                    {(userProfile?.role === 'admin' || userProfile?.role === 'manager' || 
-                      task.createdBy === user?.uid) && (
-                      <>
-                        <button
-                          onClick={() => handleEdit(task)}
-                          className="p-2 hover:bg-gray-200 rounded-lg"
-                        >
-                          ✏️
-                        </button>
-                        <button
-                          onClick={() => handleDelete(task)}
-                          className="p-2 hover:bg-red-100 rounded-lg text-red-600"
-                        >
-                          🗑️
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </motion.div>
-            ))}
+                </motion.div>
+              )
+            })}
           </div>
-        </div>
+        </Card>
       )}
 
       {/* 작업 생성/수정 모달 */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-hidden"
-          >
-            <div className="px-6 py-4 border-b">
-              <h2 className="text-xl font-bold text-gray-900">
-                {editingTask ? '작업 수정' : '새 작업 만들기'}
-              </h2>
+      <Dialog open={showModal} onOpenChange={setShowModal}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {editingTask ? '작업 수정' : '새 작업 만들기'}
+            </DialogTitle>
+          </DialogHeader>
+
+          <form onSubmit={handleSubmit}>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="project">프로젝트 *</Label>
+                <Select 
+                  value={formData.projectId}
+                  onValueChange={(value) => setFormData({ ...formData, projectId: value })}
+                  required
+                  disabled={!!editingTask}
+                >
+                  <SelectTrigger id="project">
+                    <SelectValue placeholder="프로젝트를 선택하세요" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {projects.map(project => (
+                      <SelectItem key={project.id} value={project.id}>
+                        {project.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="title">작업 제목 *</Label>
+                <Input
+                  id="title"
+                  type="text"
+                  value={formData.title}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  placeholder="작업 제목을 입력하세요"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="description">설명</Label>
+                <Textarea
+                  id="description"
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  rows={3}
+                  placeholder="작업에 대한 상세 설명을 입력하세요"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>상태</Label>
+                  <div className="flex gap-2">
+                    {[
+                      { value: TaskStatus.TODO, label: '할 일', variant: 'outline' as const },
+                      { value: TaskStatus.IN_PROGRESS, label: '진행 중', variant: 'default' as const },
+                      { value: TaskStatus.REVIEW, label: '검토', variant: 'secondary' as const },
+                      { value: TaskStatus.DONE, label: '완료', variant: 'default' as const }
+                    ].map(status => (
+                      <Button
+                        key={status.value}
+                        type="button"
+                        variant={formData.status === status.value ? status.variant : 'outline'}
+                        size="sm"
+                        onClick={() => setFormData({ ...formData, status: status.value })}
+                        className="flex-1"
+                      >
+                        {status.label}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>우선순위</Label>
+                  <div className="flex gap-2">
+                    {[
+                      { value: TaskPriority.LOW, ...priorityConfig['low'] },
+                      { value: TaskPriority.MEDIUM, ...priorityConfig['medium'] },
+                      { value: TaskPriority.HIGH, ...priorityConfig['high'] },
+                      { value: TaskPriority.URGENT, ...priorityConfig['urgent'] }
+                    ].map(priority => (
+                      <Button
+                        key={priority.value}
+                        type="button"
+                        variant={formData.priority === priority.value ? priority.variant : 'outline'}
+                        size="sm"
+                        onClick={() => setFormData({ ...formData, priority: priority.value })}
+                        className="flex-1"
+                      >
+                        {priority.label}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="assignee">담당자</Label>
+                <Input
+                  id="assignee"
+                  type="text"
+                  value={formData.assignee}
+                  onChange={(e) => setFormData({ ...formData, assignee: e.target.value })}
+                  placeholder="담당자 이메일"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="startDate">시작일</Label>
+                  <Input
+                    id="startDate"
+                    type="date"
+                    value={formData.startDate}
+                    onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="dueDate">마감일</Label>
+                  <Input
+                    id="dueDate"
+                    type="date"
+                    value={formData.dueDate}
+                    onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+                  />
+                </div>
+              </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    프로젝트 *
-                  </label>
-                  <select
-                    value={formData.projectId}
-                    onChange={(e) => setFormData({ ...formData, projectId: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
-                    required
-                    disabled={!!editingTask}
-                  >
-                    <option value="">프로젝트를 선택하세요</option>
-                    {projects.map(project => (
-                      <option key={project.id} value={project.id}>{project.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    작업 제목 *
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.title}
-                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
-                    placeholder="작업 제목을 입력하세요"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    설명
-                  </label>
-                  <textarea
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
-                    rows={3}
-                    placeholder="작업에 대한 상세 설명을 입력하세요"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      상태
-                    </label>
-                    <div className="flex gap-2">
-                      {[
-                        { value: TaskStatus.TODO, label: '📄 할 일' },
-                        { value: TaskStatus.IN_PROGRESS, label: '🔄 진행 중' },
-                        { value: TaskStatus.REVIEW, label: '🔍 검토' },
-                        { value: TaskStatus.DONE, label: '✅ 완료' }
-                      ].map(status => (
-                        <button
-                          key={status.value}
-                          type="button"
-                          onClick={() => setFormData({ ...formData, status: status.value })}
-                          className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                            formData.status === status.value
-                              ? status.value === TaskStatus.TODO ? 'bg-gray-100 text-gray-700' :
-                                status.value === TaskStatus.IN_PROGRESS ? 'bg-blue-100 text-blue-700' :
-                                status.value === TaskStatus.REVIEW ? 'bg-purple-100 text-purple-700' :
-                                'bg-green-100 text-green-700'
-                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                          }`}
-                        >
-                          {status.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      우선순위
-                    </label>
-                    <div className="flex gap-2">
-                      {[
-                        { value: TaskPriority.LOW, label: '🟢 낮음' },
-                        { value: TaskPriority.MEDIUM, label: '🟡 보통' },
-                        { value: TaskPriority.HIGH, label: '🟠 높음' },
-                        { value: TaskPriority.URGENT, label: '🔴 긴급' }
-                      ].map(priority => (
-                        <button
-                          key={priority.value}
-                          type="button"
-                          onClick={() => setFormData({ ...formData, priority: priority.value })}
-                          className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                            formData.priority === priority.value
-                              ? priority.value === TaskPriority.LOW ? 'bg-green-100 text-green-700' :
-                                priority.value === TaskPriority.MEDIUM ? 'bg-yellow-100 text-yellow-700' :
-                                priority.value === TaskPriority.HIGH ? 'bg-orange-100 text-orange-700' :
-                                'bg-red-100 text-red-700'
-                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                          }`}
-                        >
-                          {priority.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    담당자
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.assignee}
-                    onChange={(e) => setFormData({ ...formData, assignee: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
-                    placeholder="담당자 이메일"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      시작일
-                    </label>
-                    <input
-                      type="date"
-                      value={formData.startDate}
-                      onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      마감일
-                    </label>
-                    <input
-                      type="date"
-                      value={formData.dueDate}
-                      onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex gap-3 mt-6">
-                <button
-                  type="button"
-                  onClick={handleCloseModal}
-                  className="flex-1 btn btn-secondary"
-                >
-                  취소
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 btn btn-primary"
-                >
-                  {editingTask ? '수정' : '생성'}
-                </button>
-              </div>
-            </form>
-          </motion.div>
-        </div>
-      )}
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleCloseModal}
+              >
+                취소
+              </Button>
+              <Button type="submit">
+                {editingTask ? '수정' : '생성'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

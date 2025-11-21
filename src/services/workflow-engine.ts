@@ -1,7 +1,9 @@
 import { database } from '@/lib/firebase'
-import { ref, push, set, get, update, remove } from 'firebase/database'
+import { ref, push, set, get, update, remove, DatabaseReference } from 'firebase/database'
 import { v4 as uuidv4 } from 'uuid'
 import * as cron from 'node-cron'
+import { WorkflowEngineConfig } from '@/types/services'
+import logger from '@/utils/logger'
 
 interface Workflow {
   id: string
@@ -16,7 +18,7 @@ interface Workflow {
     id: string
     name: string
     type: 'notification' | 'email' | 'task' | 'webhook' | 'condition' | 'wait'
-    config: any
+    config: Record<string, any>
   }>
   createdAt: string
   updatedAt: string
@@ -143,7 +145,9 @@ class WorkflowEngine {
     await set(executionRef, execution)
 
     // 비동기로 워크플로우 실행
-    this.runWorkflow(workflow, executionId).catch(console.error)
+    this.runWorkflow(workflow, executionId).catch(error => 
+      logger.error('Error running workflow', 'WorkflowEngine', error)
+    )
 
     return executionId
   }
@@ -166,7 +170,7 @@ class WorkflowEngine {
     const { schedule } = workflow.trigger
     
     if (!schedule || !cron.validate(schedule)) {
-      console.error(`Invalid cron expression: ${schedule}`)
+      logger.error(`Invalid cron expression: ${schedule}`, 'WorkflowEngine')
       return
     }
     
@@ -175,7 +179,7 @@ class WorkflowEngine {
     })
     
     this.scheduledJobs.set(workflow.id, job)
-    console.log(`Scheduled workflow ${workflow.name} with cron: ${schedule}`)
+    logger.info(`Scheduled workflow ${workflow.name} with cron: ${schedule}`, 'WorkflowEngine')
   }
 
   // 워크플로우 실행 엔진
@@ -203,7 +207,7 @@ class WorkflowEngine {
         message: 'Workflow completed successfully',
         type: 'success'
       })
-    } catch (error: any) {
+    } catch (error) {
       await update(executionRef, {
         status: 'failed',
         completedAt: new Date().toISOString()
@@ -211,14 +215,14 @@ class WorkflowEngine {
       
       await this.logExecution(executionRef, {
         timestamp: new Date().toISOString(),
-        message: `Workflow failed: ${error.message}`,
+        message: `Workflow failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
         type: 'error'
       })
     }
   }
 
   // 액션 실행
-  private async executeAction(action: any, workflow: Workflow, executionRef: any) {
+  private async executeAction(action: { id: string; name: string; type: string; config: Record<string, any> }, workflow: Workflow, executionRef: DatabaseReference) {
     switch (action.type) {
       case 'notification':
         // Firebase에 알림 저장
@@ -257,8 +261,8 @@ class WorkflowEngine {
             message: `Email sent to ${action.config.recipient}`,
             type: 'info'
           })
-        } catch (error: any) {
-          throw new Error(`Email failed: ${error.message}`)
+        } catch (error) {
+          throw new Error(`Email failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
         }
         break
         
@@ -298,8 +302,8 @@ class WorkflowEngine {
             message: `Webhook called: ${action.config.url}`,
             type: 'info'
           })
-        } catch (error: any) {
-          throw new Error(`Webhook failed: ${error.message}`)
+        } catch (error) {
+          throw new Error(`Webhook failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
         }
         break
         
@@ -333,12 +337,12 @@ class WorkflowEngine {
         break
         
       default:
-        console.log(`Unknown action type: ${action.type}`)
+        logger.warn(`Unknown action type: ${action.type}`, 'WorkflowEngine')
     }
   }
 
   // 실행 로그 추가
-  private async logExecution(executionRef: any, log: any) {
+  private async logExecution(executionRef: DatabaseReference, log: { timestamp: string; message: string; type: 'info' | 'error' | 'success' }) {
     const logsRef = ref(database, `${executionRef.key}/logs`)
     await push(logsRef, log)
   }

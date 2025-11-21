@@ -1,6 +1,8 @@
-# CodeB Platform - 차세대 프로젝트 관리 시스템
+# CodeB Platform - 프로젝트 관리 & CMS 플랫폼
 
-CodeB Platform은 Next.js 14와 Firebase를 기반으로 구축된 현대적인 프로젝트 관리 및 협업 플랫폼입니다.
+CodeB Platform은 Next.js 14, React 18, TypeScript, Firebase를 기반으로 구축된 현대적인 프로젝트 관리 및 콘텐츠 관리 시스템(CMS)을 결합한 종합 비즈니스 플랫폼입니다. 
+
+**✅ 프로덕션 배포 준비 완료** - 최신 개선으로 안전하고 최적화된 상태입니다.
 
 ## 🚀 주요 기능
 

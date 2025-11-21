@@ -24,8 +24,15 @@ export interface KanbanColumn {
 class TaskService {
   // 프로젝트의 칸반 컬럼 가져오기
   async getKanbanColumns(projectId: string): Promise<KanbanColumn[]> {
-    const columnsRef = dbRef(database, `projects/${projectId}/kanbanColumns`)
-    const snapshot = await get(columnsRef)
+    // 먼저 새로운 경로 확인
+    let columnsRef = dbRef(database, `projects/${projectId}/kanbanColumns`)
+    let snapshot = await get(columnsRef)
+    
+    // 새로운 경로에 없으면 기존 경로 확인
+    if (!snapshot.exists()) {
+      columnsRef = dbRef(database, `kanban/${projectId}/columns`)
+      snapshot = await get(columnsRef)
+    }
     
     if (!snapshot.exists()) {
       // 기본 컬럼 생성
@@ -44,10 +51,17 @@ class TaskService {
       return defaultColumns
     }
     
-    const columns: KanbanColumn[] = []
-    snapshot.forEach((child) => {
-      columns.push(child.val())
-    })
+    // 데이터가 배열인지 객체인지 확인
+    const data = snapshot.val()
+    let columns: KanbanColumn[] = []
+    
+    if (Array.isArray(data)) {
+      columns = data
+    } else {
+      snapshot.forEach((child) => {
+        columns.push(child.val())
+      })
+    }
     
     return columns.sort((a, b) => a.order - b.order)
   }
@@ -68,8 +82,15 @@ class TaskService {
 
   // 프로젝트의 모든 태스크 가져오기
   async getTasks(projectId: string): Promise<Task[]> {
-    const tasksRef = dbRef(database, `projects/${projectId}/tasks`)
-    const snapshot = await get(tasksRef)
+    // 먼저 새로운 경로 확인
+    let tasksRef = dbRef(database, `projects/${projectId}/tasks`)
+    let snapshot = await get(tasksRef)
+    
+    // 새로운 경로에 없으면 기존 경로 확인
+    if (!snapshot.exists()) {
+      tasksRef = dbRef(database, `tasks/${projectId}`)
+      snapshot = await get(tasksRef)
+    }
     
     if (!snapshot.exists()) return []
     
@@ -155,56 +176,103 @@ class TaskService {
 
   // 태스크 실시간 구독
   subscribeToTasks(projectId: string, callback: (tasks: Task[]) => void): () => void {
-    const tasksRef = dbRef(database, `projects/${projectId}/tasks`)
+    let unsubscribe: (() => void) | null = null
     
-    const listener = onValue(tasksRef, (snapshot) => {
-      const tasks: Task[] = []
+    // 비동기로 경로 확인 후 리스너 설정
+    const setupListener = async () => {
+      // 먼저 새로운 경로 시도
+      let tasksRef = dbRef(database, `projects/${projectId}/tasks`)
+      let snapshot = await get(tasksRef)
       
-      if (snapshot.exists()) {
-        snapshot.forEach((child) => {
-          const taskData = child.val()
-          const baseTask = taskFromFirebase({
-            id: child.key!,
-            ...taskData
-          })
-          tasks.push({
-            ...baseTask,
-            columnId: taskData.columnId || 'todo',
-            order: taskData.order || 0
-          } as Task)
-        })
+      // 새로운 경로에 없으면 기존 경로 사용
+      if (!snapshot.exists()) {
+        tasksRef = dbRef(database, `tasks/${projectId}`)
       }
       
-      callback(tasks.sort((a, b) => a.order - b.order))
-    })
+      const listener = onValue(tasksRef, (snapshot) => {
+        const tasks: Task[] = []
+        
+        if (snapshot.exists()) {
+          snapshot.forEach((child) => {
+            const taskData = child.val()
+            const baseTask = taskFromFirebase({
+              id: child.key!,
+              ...taskData
+            })
+            tasks.push({
+              ...baseTask,
+              columnId: taskData.columnId || 'todo',
+              order: taskData.order || 0
+            } as Task)
+          })
+        }
+        
+        callback(tasks.sort((a, b) => a.order - b.order))
+      })
+      
+      unsubscribe = () => off(tasksRef, 'value', listener)
+    }
     
-    return () => off(tasksRef, 'value', listener)
+    setupListener()
+    
+    // 구독 해제 함수 반환
+    return () => {
+      if (unsubscribe) {
+        unsubscribe()
+      }
+    }
   }
 
   // 칸반 컬럼 실시간 구독
   subscribeToColumns(projectId: string, callback: (columns: KanbanColumn[]) => void): () => void {
-    const columnsRef = dbRef(database, `projects/${projectId}/kanbanColumns`)
+    let unsubscribe: (() => void) | null = null
     
-    const listener = onValue(columnsRef, (snapshot) => {
-      const columns: KanbanColumn[] = []
+    // 비동기로 경로 확인 후 리스너 설정
+    const setupListener = async () => {
+      let columnsRef = dbRef(database, `projects/${projectId}/kanbanColumns`)
+      let snapshot = await get(columnsRef)
       
-      if (snapshot.exists()) {
-        snapshot.forEach((child) => {
-          columns.push(child.val())
-        })
-        callback(columns.sort((a, b) => a.order - b.order))
-      } else {
-        // 기본 컬럼 반환
-        callback([
-          { id: 'todo', title: '할 일', color: '#ef4444', order: 0 },
-          { id: 'in-progress', title: '진행 중', color: '#eab308', order: 1 },
-          { id: 'review', title: '검토', color: '#8b5cf6', order: 2 },
-          { id: 'done', title: '완료', color: '#10b981', order: 3 }
-        ])
+      // 새로운 경로에 없으면 기존 경로 사용
+      if (!snapshot.exists()) {
+        columnsRef = dbRef(database, `kanban/${projectId}/columns`)
       }
-    })
+      
+      const listener = onValue(columnsRef, (snapshot) => {
+        if (snapshot.exists()) {
+          const data = snapshot.val()
+          let columns: KanbanColumn[] = []
+          
+          if (Array.isArray(data)) {
+            columns = data
+          } else {
+            snapshot.forEach((child) => {
+              columns.push(child.val())
+            })
+          }
+          
+          callback(columns.sort((a, b) => a.order - b.order))
+        } else {
+          // 기본 컬럼 반환
+          callback([
+            { id: 'todo', title: '할 일', color: '#ef4444', order: 0 },
+            { id: 'in-progress', title: '진행 중', color: '#eab308', order: 1 },
+            { id: 'review', title: '검토', color: '#8b5cf6', order: 2 },
+            { id: 'done', title: '완료', color: '#10b981', order: 3 }
+          ])
+        }
+      })
+      
+      unsubscribe = () => off(columnsRef, 'value', listener)
+    }
     
-    return () => off(columnsRef, 'value', listener)
+    setupListener()
+    
+    // 구독 해제 함수 반환
+    return () => {
+      if (unsubscribe) {
+        unsubscribe()
+      }
+    }
   }
 
   // 프로젝트 진행률 계산 및 업데이트
@@ -216,7 +284,7 @@ class TaskService {
       return
     }
     
-    const completedTasks = tasks.filter(task => task.status === 'done').length
+    const completedTasks = tasks.filter(task => task.status === TaskStatus.DONE).length
     const progress = Math.round((completedTasks / tasks.length) * 100)
     
     await update(dbRef(database, `projects/${projectId}`), {

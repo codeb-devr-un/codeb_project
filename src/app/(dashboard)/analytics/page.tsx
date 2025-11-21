@@ -1,195 +1,248 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { motion } from 'framer-motion'
-import PredictiveAnalytics from '@/components/analytics/PredictiveAnalytics'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { 
+  BarChart3, TrendingUp, Users, DollarSign, Calendar,
+  ArrowUp, ArrowDown, Activity, Target, PieChart,
+  LineChart, Download, Filter
+} from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth-context'
-import analyticsService from '@/services/analytics-service'
-import { AnalyticsMetric, TrendData } from '@/types/analytics'
-import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 
 export default function AnalyticsPage() {
-  const { user } = useAuth()
-  const [metrics, setMetrics] = useState<AnalyticsMetric[]>([])
-  const [insights, setInsights] = useState<string[]>([])
-  const [trendData, setTrendData] = useState<TrendData[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const { userProfile } = useAuth()
+  const [timeRange, setTimeRange] = useState('month')
+  const [selectedProject, setSelectedProject] = useState('all')
 
-  useEffect(() => {
-    loadAnalytics()
-  }, [])
+  const stats = [
+    { 
+      label: '총 매출', 
+      value: '₩125.4M', 
+      change: '+23%', 
+      trend: 'up', 
+      icon: DollarSign,
+      color: 'text-green-600',
+      bgColor: 'bg-green-100'
+    },
+    { 
+      label: '완료 프로젝트', 
+      value: '42', 
+      change: '+12%', 
+      trend: 'up', 
+      icon: Target,
+      color: 'text-blue-600',
+      bgColor: 'bg-blue-100'
+    },
+    { 
+      label: '활성 사용자', 
+      value: '1,234', 
+      change: '+5%', 
+      trend: 'up', 
+      icon: Users,
+      color: 'text-purple-600',
+      bgColor: 'bg-purple-100'
+    },
+    { 
+      label: '평균 완료 시간', 
+      value: '18일', 
+      change: '-8%', 
+      trend: 'down', 
+      icon: Calendar,
+      color: 'text-orange-600',
+      bgColor: 'bg-orange-100'
+    },
+  ]
 
-  const loadAnalytics = async () => {
-    setIsLoading(true)
-    try {
-      const [metricsData, insightsData, trendsData] = await Promise.all([
-        analyticsService.getKeyMetrics(),
-        analyticsService.generateInsights({}),
-        analyticsService.getProjectTrends('1', 'progress')
-      ])
-
-      setMetrics(metricsData)
-      setInsights(insightsData)
-      setTrendData(trendsData)
-    } catch (error) {
-      console.error('Failed to load analytics:', error)
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const getMetricIcon = (metricName: string) => {
-    if (metricName.includes('완료')) return '📈'
-    if (metricName.includes('예산')) return '💰'
-    if (metricName.includes('리소스')) return '👥'
-    if (metricName.includes('품질')) return '⭐'
-    return '📊'
-  }
-
-  const getTrendIcon = (trend: string) => {
-    switch (trend) {
-      case 'up': return '↗️'
-      case 'down': return '↘️'
-      default: return '→'
-    }
-  }
-
-  const getTrendColor = (trend: string) => {
-    switch (trend) {
-      case 'up': return 'text-green-600'
-      case 'down': return 'text-red-600'
-      default: return 'text-gray-600'
-    }
-  }
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-center">
-          <div className="animate-spin text-4xl mb-4">📊</div>
-          <p className="text-gray-600">분석 데이터 로딩 중...</p>
-        </div>
-      </div>
-    )
-  }
+  const projectPerformance = [
+    { name: '웹사이트 리뉴얼', revenue: 45000000, tasks: 124, completion: 92 },
+    { name: '모바일 앱 개발', revenue: 38000000, tasks: 89, completion: 78 },
+    { name: 'ERP 시스템 구축', revenue: 62000000, tasks: 156, completion: 85 },
+    { name: 'AI 챗봇 개발', revenue: 28000000, tasks: 67, completion: 95 },
+  ]
 
   return (
-    <div className="space-y-6">
+    <div className="w-full max-w-[1920px] mx-auto px-6 py-6 space-y-6">
       {/* 헤더 */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">예측 분석 대시보드</h1>
-        <p className="text-gray-600 mt-1">AI 기반 프로젝트 예측 분석 및 인사이트</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">통계 분석</h1>
+          <p className="text-muted-foreground mt-1">프로젝트와 팀의 성과를 한눈에 확인하세요</p>
+        </div>
+        
+        <div className="flex items-center gap-3">
+          {/* 기간 선택 */}
+          <Select value={timeRange} onValueChange={setTimeRange}>
+            <SelectTrigger className="w-[140px]">
+              <Calendar className="h-4 w-4 mr-2" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="week">이번 주</SelectItem>
+              <SelectItem value="month">이번 달</SelectItem>
+              <SelectItem value="quarter">이번 분기</SelectItem>
+              <SelectItem value="year">올해</SelectItem>
+            </SelectContent>
+          </Select>
+          
+          <Button variant="outline">
+            <Download className="h-4 w-4 mr-2" />
+            리포트 다운로드
+          </Button>
+        </div>
       </div>
 
       {/* 주요 지표 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {metrics.map((metric, index) => (
-          <motion.div
-            key={metric.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.1 }}
-            className="bg-white rounded-xl shadow-sm p-6"
-          >
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <p className="text-sm text-gray-600">{metric.name}</p>
-                <div className="flex items-baseline gap-2 mt-1">
-                  <p className="text-2xl font-bold text-gray-900">{metric.value}%</p>
-                  <span className={`text-sm font-medium ${getTrendColor(metric.trend)}`}>
-                    {getTrendIcon(metric.trend)} {Math.abs(metric.change)}%
-                  </span>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {stats.map((stat, index) => (
+          <Card key={index}>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">{stat.label}</p>
+                  <p className="text-2xl font-bold">{stat.value}</p>
+                  <div className="flex items-center gap-1">
+                    {stat.trend === 'up' ? (
+                      <ArrowUp className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <ArrowDown className="h-4 w-4 text-red-600" />
+                    )}
+                    <span className={cn(
+                      "text-sm font-medium",
+                      stat.trend === 'up' ? 'text-green-600' : 'text-red-600'
+                    )}>
+                      {stat.change}
+                    </span>
+                    <span className="text-sm text-muted-foreground">vs 지난달</span>
+                  </div>
+                </div>
+                <div className={cn("p-3 rounded-full", stat.bgColor)}>
+                  <stat.icon className={cn("h-6 w-6", stat.color)} />
                 </div>
               </div>
-              <span className="text-2xl">{getMetricIcon(metric.name)}</span>
-            </div>
-            
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-600">예측값</span>
-                <span className="font-medium text-primary">{metric.prediction}%</span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div 
-                  className="bg-gradient-to-r from-primary to-purple-600 h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${metric.confidence * 100}%` }}
-                />
-              </div>
-              <p className="text-xs text-gray-500 text-right">
-                신뢰도 {Math.round(metric.confidence * 100)}%
-              </p>
-            </div>
-          </motion.div>
+            </CardContent>
+          </Card>
         ))}
       </div>
 
-      {/* AI 인사이트 */}
-      <div className="bg-gradient-to-br from-purple-50 to-blue-50 rounded-xl p-6">
-        <div className="flex items-center gap-3 mb-4">
-          <span className="text-3xl">🤖</span>
-          <h2 className="text-lg font-semibold text-gray-900">AI 인사이트</h2>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {insights.map((insight, index) => (
-            <motion.div
-              key={index}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: index * 0.1 }}
-              className="flex items-start gap-3 p-4 bg-white/70 backdrop-blur-sm rounded-lg"
-            >
-              <span className="text-purple-500 mt-0.5">💡</span>
-              <p className="text-sm text-gray-700">{insight}</p>
-            </motion.div>
-          ))}
-        </div>
-      </div>
+      {/* 차트 섹션 */}
+      <Tabs defaultValue="revenue" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="revenue">매출 추이</TabsTrigger>
+          <TabsTrigger value="projects">프로젝트 현황</TabsTrigger>
+          <TabsTrigger value="team">팀 성과</TabsTrigger>
+          <TabsTrigger value="clients">고객 분석</TabsTrigger>
+        </TabsList>
 
-      {/* 트렌드 차트 */}
-      <div className="bg-white rounded-xl shadow-sm p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">프로젝트 진행 트렌드</h2>
-        
-        <ResponsiveContainer width="100%" height={300}>
-          <AreaChart data={trendData}>
-            <defs>
-              <linearGradient id="trendGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#4f7eff" stopOpacity={0.8}/>
-                <stop offset="95%" stopColor="#4f7eff" stopOpacity={0.1}/>
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="label" />
-            <YAxis />
-            <Tooltip 
-              formatter={(value: number) => `${value}%`}
-              contentStyle={{ backgroundColor: 'rgba(255, 255, 255, 0.95)', border: '1px solid #e5e7eb' }}
-            />
-            <Area 
-              type="monotone" 
-              dataKey="value" 
-              stroke="#4f7eff" 
-              fillOpacity={1} 
-              fill="url(#trendGradient)"
-              strokeDasharray="5 5"
-            />
-          </AreaChart>
-        </ResponsiveContainer>
-        
-        <div className="flex items-center gap-6 mt-4 text-sm text-gray-600">
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-0.5 bg-primary"></div>
-            <span>실제 데이터</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-0.5 bg-primary border-dashed" style={{ borderBottom: '2px dashed' }}></div>
-            <span>예측 데이터</span>
-          </div>
-        </div>
-      </div>
+        <TabsContent value="revenue" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <LineChart className="h-5 w-5" />
+                월별 매출 추이
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[400px] flex items-center justify-center text-muted-foreground">
+                <p>차트 컴포넌트가 여기에 표시됩니다</p>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-      {/* 상세 예측 분석 */}
-      <PredictiveAnalytics projectId="1" />
+        <TabsContent value="projects" className="space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <PieChart className="h-5 w-5" />
+                  프로젝트 상태별 분포
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                  <p>파이 차트가 여기에 표시됩니다</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5" />
+                  프로젝트별 진행률
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                  <p>막대 차트가 여기에 표시됩니다</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="team" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>팀원별 성과</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {['김개발', '이디자인', '박기획', '최마케팅'].map((member, idx) => (
+                  <div key={idx} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                        <span className="font-medium">{member[0]}</span>
+                      </div>
+                      <div>
+                        <p className="font-medium">{member}</p>
+                        <p className="text-sm text-muted-foreground">완료 작업: {23 + idx * 7}개</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-medium">{95 - idx * 2}%</p>
+                      <p className="text-sm text-muted-foreground">효율성</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="clients" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>주요 고객사별 프로젝트</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {projectPerformance.map((project, idx) => (
+                  <div key={idx} className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">{project.name}</span>
+                      <span className="text-sm text-muted-foreground">
+                        ₩{(project.revenue / 1000000).toFixed(1)}M
+                      </span>
+                    </div>
+                    <div className="w-full bg-secondary rounded-full h-2">
+                      <div 
+                        className="bg-primary h-2 rounded-full transition-all"
+                        style={{ width: `${project.completion}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

@@ -136,8 +136,15 @@ export default function GanttPage() {
             ← 프로젝트 목록
           </Link>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">웹사이트 리뉴얼</h1>
+            <h1 className="text-2xl font-bold text-gray-900">프로젝트 간트차트</h1>
             <div className="flex items-center gap-4 mt-1">
+              <Link
+                href={`/projects/${projectId}`}
+                className="text-sm text-gray-600 hover:text-gray-900"
+              >
+                ← 프로젝트 상세
+              </Link>
+              <span className="text-gray-400">|</span>
               <Link
                 href={`/projects/${projectId}/gantt`}
                 className="text-sm font-medium text-primary"

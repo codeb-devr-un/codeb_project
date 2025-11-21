@@ -9,6 +9,16 @@ import { getDatabase } from 'firebase/database'
 import chatAssignment from '@/lib/chat-assignment'
 import { Project } from '@/types'
 import { useRouter } from 'next/navigation'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Label } from '@/components/ui/label'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { 
+  MessageCircle, Clock, Users, Phone, X, Loader2,
+  Building2, HeadphonesIcon, MessageSquare
+} from 'lucide-react'
 
 interface AssignedOperator {
   uid: string
@@ -222,8 +232,15 @@ export default function CustomerSupportPage() {
 
   if (!user || !userProfile) {
     return (
-      <div className="p-8 text-center">
-        <p className="text-gray-500">로그인이 필요합니다.</p>
+      <div className="flex items-center justify-center h-96">
+        <Card className="w-full max-w-md">
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <MessageCircle className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+              <p className="text-muted-foreground">로그인이 필요합니다.</p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     )
   }
@@ -232,155 +249,187 @@ export default function CustomerSupportPage() {
     return (
       <div className="flex items-center justify-center h-96">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-gray-600">로딩 중...</p>
+          <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
+          <p className="mt-4 text-muted-foreground">로딩 중...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="w-full max-w-[1920px] mx-auto px-6 py-6 space-y-6">
       {/* 헤더 */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">실시간 상담</h1>
-        <p className="text-gray-600 mt-1">전문 상담원과 실시간으로 대화하세요</p>
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">실시간 상담</h1>
+        <p className="text-muted-foreground mt-1">전문 상담원과 실시간으로 대화하세요</p>
       </div>
 
       {/* 프로젝트 선택 */}
       {projects.length > 0 && requestStatus === 'none' && (
-        <div className="mb-6 bg-white rounded-lg shadow-sm p-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            상담할 프로젝트 선택
-          </label>
-          <select
-            value={selectedProject?.id || ''}
-            onChange={(e) => {
-              const project = projects.find(p => p.id === e.target.value)
-              if (project) setSelectedProject(project)
-            }}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-          >
-            {projects.map(project => (
-              <option key={project.id} value={project.id}>
-                {project.name}
-              </option>
-            ))}
-          </select>
-        </div>
+        <Card>
+          <CardContent className="p-4">
+            <Label htmlFor="project-select">상담할 프로젝트 선택</Label>
+            <Select
+              value={selectedProject?.id || ''}
+              onValueChange={(value) => {
+                const project = projects.find(p => p.id === value)
+                if (project) setSelectedProject(project)
+              }}
+            >
+              <SelectTrigger id="project-select" className="mt-2">
+                <SelectValue placeholder="프로젝트를 선택하세요" />
+              </SelectTrigger>
+              <SelectContent>
+                {projects.map(project => (
+                  <SelectItem key={project.id} value={project.id}>
+                    {project.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </CardContent>
+        </Card>
       )}
 
-      <div className="bg-white rounded-lg shadow-sm">
-        {requestStatus === 'none' && (
-          <div className="flex flex-col items-center justify-center p-12">
-            <div className="text-center max-w-md">
-              <div className="w-24 h-24 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                <svg className="w-12 h-12 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                </svg>
-              </div>
-              
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">상담을 시작하세요</h2>
-              
-              {selectedProject && (
-                <div className="mb-6 p-3 bg-blue-50 rounded-lg">
-                  <p className="text-sm text-blue-700 font-medium">{selectedProject.name}</p>
-                  <p className="text-xs text-blue-600 mt-1">프로젝트 관련 문의</p>
-                </div>
-              )}
-              
-              <p className="text-gray-600 mb-8">
-                궁금한 사항이 있으신가요?<br />
-                전문 상담원이 실시간으로 답변해드립니다.
-              </p>
-              
-              <button
-                onClick={requestChat}
-                disabled={isRequesting}
-                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {isRequesting ? '요청 중...' : '상담 시작하기'}
-              </button>
-              
-              <div className="mt-8 text-sm text-gray-500">
-                <p>운영 시간: 평일 09:00 - 18:00</p>
-                <p>주말 및 공휴일은 휴무입니다.</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {requestStatus === 'waiting' && (
-          <div className="flex flex-col items-center justify-center p-12">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-6"></div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">상담원 연결 중...</h3>
-              <p className="text-gray-600">
-                잠시만 기다려주세요.<br />
-                곧 상담원이 연결됩니다.
-              </p>
-              {selectedProject && (
-                <p className="text-sm text-blue-600 mt-4">
-                  프로젝트: {selectedProject.name}
-                </p>
-              )}
-            </div>
-          </div>
-        )}
-
-        {requestStatus === 'connected' && assignedOperator ? (
-          <div className="h-[600px] flex flex-col">
-            <div className="bg-white border-b px-6 py-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <div className="relative">
-                    <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-medium">
-                      {(assignedOperator.name || assignedOperator.email || 'O').charAt(0).toUpperCase()}
-                    </div>
-                    {assignedOperator.status === 'online' && (
-                      <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
-                    )}
-                  </div>
-                  <div>
-                    <h3 className="font-medium text-gray-900">{assignedOperator.name || assignedOperator.email || '운영자'}</h3>
-                    <p className="text-sm text-gray-500">
-                      {assignedOperator.status === 'online' ? '온라인' : '오프라인'}
-                      {selectedProject && ` • ${selectedProject.name}`}
-                    </p>
-                  </div>
+      <Card className="min-h-[600px]">
+        <CardContent className="p-0 h-full">
+          {requestStatus === 'none' && (
+            <div className="flex flex-col items-center justify-center h-full p-12">
+              <div className="text-center max-w-md">
+                <div className="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <HeadphonesIcon className="w-12 h-12 text-primary" />
                 </div>
                 
-                <button
-                  onClick={() => {
-                    if (confirm('상담을 종료하시겠습니까?')) {
-                      chatAssignment.endChat(user.uid, assignedOperator.uid)
-                      setRequestStatus('none')
-                      setAssignedOperator(null)
-                    }
-                  }}
-                  className="text-sm text-red-600 hover:text-red-700"
+                <h2 className="text-2xl font-semibold mb-4">상담을 시작하세요</h2>
+                
+                {selectedProject && (
+                  <Card className="mb-6 border-primary/20">
+                    <CardContent className="p-3">
+                      <div className="flex items-center gap-2">
+                        <Building2 className="h-4 w-4 text-primary" />
+                        <p className="text-sm font-medium">{selectedProject.name}</p>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">프로젝트 관련 문의</p>
+                    </CardContent>
+                  </Card>
+                )}
+                
+                <p className="text-muted-foreground mb-8">
+                  궁금한 사항이 있으신가요?<br />
+                  전문 상담원이 실시간으로 답변해드립니다.
+                </p>
+                
+                <Button
+                  onClick={requestChat}
+                  disabled={isRequesting}
+                  size="lg"
+                  className="mb-8"
                 >
-                  상담 종료
-                </button>
+                  {isRequesting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      요청 중...
+                    </>
+                  ) : (
+                    <>
+                      <MessageSquare className="mr-2 h-4 w-4" />
+                      상담 시작하기
+                    </>
+                  )}
+                </Button>
+                
+                <div className="flex items-center gap-4 text-sm text-muted-foreground justify-center">
+                  <div className="flex items-center gap-1">
+                    <Clock className="h-4 w-4" />
+                    <span>평일 09:00 - 18:00</span>
+                  </div>
+                  <span>•</span>
+                  <span>주말 및 공휴일 휴무</span>
+                </div>
               </div>
             </div>
-            
-            <div className="flex-1 bg-gray-50">
-              <ChatWindow
-                receiverId={assignedOperator.uid}
-                receiverName={assignedOperator.name || assignedOperator.email || '운영자'}
-              />
+          )}
+
+          {requestStatus === 'waiting' && (
+            <div className="flex flex-col items-center justify-center h-full p-12">
+              <div className="text-center">
+                <Loader2 className="h-16 w-16 animate-spin text-primary mx-auto mb-6" />
+                <h3 className="text-xl font-semibold mb-2">상담원 연결 중...</h3>
+                <p className="text-muted-foreground">
+                  잠시만 기다려주세요.<br />
+                  곧 상담원이 연결됩니다.
+                </p>
+                {selectedProject && (
+                  <Badge variant="outline" className="mt-4">
+                    <Building2 className="h-3 w-3 mr-1" />
+                    {selectedProject.name}
+                  </Badge>
+                )}
+              </div>
             </div>
-          </div>
-        ) : requestStatus === 'connected' && !assignedOperator ? (
-          <div className="flex items-center justify-center p-12">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
-              <p className="text-gray-600">운영자 정보를 불러오고 있습니다...</p>
+          )}
+
+          {requestStatus === 'connected' && assignedOperator ? (
+            <div className="h-[600px] flex flex-col">
+              <div className="border-b px-6 py-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <Avatar>
+                      <AvatarFallback className="bg-primary text-primary-foreground">
+                        {(assignedOperator.name || assignedOperator.email || 'O').charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <h3 className="font-medium">{assignedOperator.name || assignedOperator.email || '운영자'}</h3>
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Badge variant={assignedOperator.status === 'online' ? 'default' : 'secondary'} className="h-5">
+                          {assignedOperator.status === 'online' ? '온라인' : '오프라인'}
+                        </Badge>
+                        {selectedProject && (
+                          <span className="flex items-center gap-1">
+                            <Building2 className="h-3 w-3" />
+                            {selectedProject.name}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      if (confirm('상담을 종료하시겠습니까?')) {
+                        chatAssignment.endChat(user.uid, assignedOperator.uid)
+                        setRequestStatus('none')
+                        setAssignedOperator(null)
+                      }
+                    }}
+                    className="text-destructive hover:text-destructive"
+                  >
+                    <X className="h-4 w-4 mr-2" />
+                    상담 종료
+                  </Button>
+                </div>
+              </div>
+              
+              <div className="flex-1 bg-muted/30">
+                <ChatWindow
+                  receiverId={assignedOperator.uid}
+                  receiverName={assignedOperator.name || assignedOperator.email || '운영자'}
+                />
+              </div>
             </div>
-          </div>
-        ) : null}
-      </div>
+          ) : requestStatus === 'connected' && !assignedOperator ? (
+            <div className="flex items-center justify-center h-full p-12">
+              <div className="text-center">
+                <Loader2 className="h-16 w-16 animate-spin text-primary mx-auto mb-4" />
+                <p className="text-muted-foreground">운영자 정보를 불러오고 있습니다...</p>
+              </div>
+            </div>
+          ) : null}
+        </CardContent>
+      </Card>
     </div>
   )
 }

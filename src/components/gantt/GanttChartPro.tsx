@@ -109,8 +109,7 @@ export default function GanttChartPro({
       {/* 간트차트 */}
       <div className={styles.ganttWrapper}>
         {tasks.length > 0 ? (
-          <div style={{ minWidth: '1200px', padding: '1rem' }}>
-            <Gantt
+          <Gantt
             tasks={tasks}
             viewMode={view}
             onDateChange={onDateChange}
@@ -141,8 +140,7 @@ export default function GanttChartPro({
             fontSize="14px"
             rowHeight={50}
             todayColor="rgba(79, 126, 255, 0.1)"
-            />
-          </div>
+          />
         ) : (
           <div className="text-center py-12 text-gray-500">
             작업이 없습니다. 새 작업을 추가해주세요.

@@ -1,4 +1,14 @@
 import { Workflow, WorkflowRun, WorkflowLog, WorkflowAction } from '@/types/automation'
+import logger from '@/utils/logger'
+import { 
+  WorkflowExecutionResult,
+  WorkflowNotificationConfig,
+  WorkflowEmailConfig,
+  WorkflowTaskConfig,
+  WorkflowApiConfig,
+  WorkflowConditionConfig,
+  WorkflowWaitConfig
+} from '@/types/services'
 
 class WorkflowService {
   private runningWorkflows: Map<string, WorkflowRun> = new Map()
@@ -15,7 +25,7 @@ class WorkflowService {
 
       if (response.ok) {
         const { executionId } = await response.json()
-        console.log(`워크플로우가 실행됩니다. 실행 ID: ${executionId}`)
+        logger.info(`워크플로우가 실행됩니다. 실행 ID: ${executionId}`, 'WorkflowService')
         
         // 실행 상태를 반환
         return {
@@ -32,7 +42,7 @@ class WorkflowService {
         }
       }
     } catch (error) {
-      console.log('API 호출 실패, 로컬에서 실행합니다.')
+      logger.debug('API 호출 실패, 로컬에서 실행합니다.', 'WorkflowService')
     }
 
     // 폴백: 기존 로컬 실행
@@ -60,11 +70,11 @@ class WorkflowService {
       run.completedAt = new Date()
       this.addLog(run, 'system', 'success', '워크플로우 실행 완료')
 
-    } catch (error: any) {
+    } catch (error) {
       run.status = 'failed'
       run.completedAt = new Date()
-      run.error = error.message
-      this.addLog(run, 'system', 'error', `워크플로우 실행 실패: ${error.message}`)
+      run.error = error instanceof Error ? error.message : 'Unknown error'
+      this.addLog(run, 'system', 'error', `워크플로우 실행 실패: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
 
     this.runningWorkflows.delete(run.id)
@@ -100,8 +110,8 @@ class WorkflowService {
 
       this.addLog(run, action.id, 'success', `액션 '${action.name}' 완료`)
 
-    } catch (error: any) {
-      this.addLog(run, action.id, 'error', `액션 실행 실패: ${error.message}`)
+    } catch (error) {
+      this.addLog(run, action.id, 'error', `액션 실행 실패: ${error instanceof Error ? error.message : 'Unknown error'}`)
       throw error
     }
   }
@@ -113,7 +123,7 @@ class WorkflowService {
       // Firebase 알림 서비스 사용
       if (typeof window !== 'undefined' && 'useNotification' in window) {
         // 브라우저 알림
-        const notificationContext = (window as any).notificationContext
+        const notificationContext = (window as any).notificationContext as { addNotification: (notification: any) => void } | undefined
         if (notificationContext) {
           notificationContext.addNotification({
             type: 'info',
@@ -149,8 +159,8 @@ class WorkflowService {
         throw new Error('알림 전송 실패')
       }
     } catch (error) {
-      // 폴백: 콘솔 로그
-      console.log(`[알림 시뮬레이션] 수신자: ${recipient}, 메시지: ${message}`)
+      // 폴백: 로그
+      logger.debug(`[알림 시뮬레이션] 수신자: ${recipient}, 메시지: ${message}`, 'WorkflowService')
       
       this.addLog(
         run, 
@@ -193,8 +203,8 @@ class WorkflowService {
         { to, subject }
       )
     } catch (error) {
-      // 폴백: 콘솔 로그
-      console.log(`[이메일 시뮬레이션] To: ${to}, Subject: ${subject}, Body: ${body}`)
+      // 폴백: 로그
+      logger.debug(`[이메일 시뮬레이션] To: ${to}, Subject: ${subject}, Body: ${body}`, 'WorkflowService')
       
       this.addLog(
         run,
@@ -243,8 +253,8 @@ class WorkflowService {
         `API 호출 성공: ${method} ${url}`,
         { status: 200, response: { success: true } }
       )
-    } catch (error: any) {
-      throw new Error(`API 호출 실패: ${error.message}`)
+    } catch (error) {
+      throw new Error(`API 호출 실패: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 
@@ -308,7 +318,7 @@ class WorkflowService {
     actionId: string, 
     status: WorkflowLog['status'], 
     message: string,
-    data?: any
+    data?: Record<string, any>
   ): void {
     run.logs.push({
       timestamp: new Date(),
@@ -328,18 +338,18 @@ class WorkflowService {
     const { schedule } = workflow.trigger.config
     
     // 실제 구현에서는 node-cron 또는 유사한 라이브러리 사용
-    console.log(`워크플로우 '${workflow.name}' 스케줄 등록: ${schedule}`)
+    logger.info(`워크플로우 '${workflow.name}' 스케줄 등록: ${schedule}`, 'WorkflowService')
   }
 
   // 이벤트 기반 워크플로우 실행
-  async handleEvent(eventType: string, eventData: any): Promise<void> {
+  async handleEvent(eventType: string, eventData: Record<string, any>): Promise<void> {
     // 실제 구현에서는 데이터베이스에서 해당 이벤트를 트리거로 하는 워크플로우 조회
     const workflows = await this.getWorkflowsByEventTrigger(eventType)
     
     for (const workflow of workflows) {
       if (workflow.status === 'active') {
         this.executeWorkflow(workflow).catch(error => {
-          console.error(`워크플로우 실행 오류 (${workflow.name}):`, error)
+          logger.error(`워크플로우 실행 오류 (${workflow.name})`, 'WorkflowService', error)
         })
       }
     }
@@ -368,7 +378,7 @@ class WorkflowService {
       const data = await response.json()
       return data.workflows || []
     } catch (error) {
-      console.error('워크플로우 목록 조회 실패:', error)
+      logger.error('워크플로우 목록 조회 실패', 'WorkflowService', error)
       return []
     }
   }
@@ -409,7 +419,7 @@ class WorkflowService {
       const data = await response.json()
       return data.executions || []
     } catch (error) {
-      console.error('실행 로그 조회 실패:', error)
+      logger.error('실행 로그 조회 실패', 'WorkflowService', error)
       return []
     }
   }

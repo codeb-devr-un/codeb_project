@@ -9,6 +9,16 @@ import ProjectCreateWizard from '@/components/projects/ProjectCreateWizard'
 import { getDatabase, ref, onValue, off, set, push } from 'firebase/database'
 import { app } from '@/lib/firebase'
 import { useRouter } from 'next/navigation'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { cn } from '@/lib/utils'
+import { Search, LayoutGrid, LayoutList, Plus, Calendar, Filter, ChevronRight, Users, DollarSign, FolderOpen, BarChart3, TrendingUp } from 'lucide-react'
+import { Progress } from '@/components/ui/progress'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 const statusLabels: Record<Project['status'], string> = {
   planning: '기획',
@@ -16,14 +26,16 @@ const statusLabels: Record<Project['status'], string> = {
   development: '개발',
   testing: '테스트',
   completed: '완료',
+  pending: '대기'
 }
 
-const statusColors: Record<Project['status'], string> = {
-  planning: 'bg-gray-100 text-gray-700',
-  design: 'bg-blue-100 text-blue-700',
-  development: 'bg-yellow-100 text-yellow-700',
-  testing: 'bg-purple-100 text-purple-700',
-  completed: 'bg-green-100 text-green-700',
+const statusVariants: Record<Project['status'], 'default' | 'secondary' | 'outline' | 'destructive'> = {
+  planning: 'outline',
+  design: 'secondary',
+  development: 'default',
+  testing: 'secondary',
+  completed: 'default',
+  pending: 'outline'
 }
 
 export default function ProjectsPage() {
@@ -60,15 +72,16 @@ export default function ProjectsPage() {
         // 사용자 역할에 따른 필터링
         let filteredProjects = projectsList
         if (userProfile?.role === 'customer') {
-          // 고객은 자신의 프로젝트 또는 같은 그룹의 프로젝트를 볼 수 있음
+          // 클라이언트는 자신의 프로젝트 또는 초대받은 프로젝트를 볼 수 있음
           filteredProjects = projectsList.filter(p => 
             p.clientId === user.uid ||
-            (userProfile.group && p.clientGroup === userProfile.group)
+            p.permissions?.viewerIds?.includes(user.uid)
           )
-        } else if (userProfile?.role === 'developer') {
-          // 개발자는 자신이 팀에 포함된 프로젝트만 볼 수 있음
+        } else if (userProfile?.role === 'developer' || userProfile?.role === 'manager') {
+          // 직원은 자신이 팀에 포함된 프로젝트만 볼 수 있음
           filteredProjects = projectsList.filter(p => 
-            p.team && p.team.includes(userProfile.email)
+            p.team?.some((member: any) => member.userId === user.uid) ||
+            p.permissions?.editorIds?.includes(user.uid)
           )
         }
         
@@ -142,10 +155,11 @@ export default function ProjectsPage() {
         updatedAt: new Date().toISOString(),
         createdBy: user?.uid,
         progress: 0,
-        activeTasks: 0,
-        completedTasks: 0,
-        totalTasks: 0,
-        team: projectData.team || []
+        permissions: {
+          viewerIds: [],
+          editorIds: [],
+          adminIds: [user?.uid]
+        }
       }
       
       await set(newProjectRef, newProject)
@@ -180,143 +194,130 @@ export default function ProjectsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="w-full max-w-[1920px] mx-auto px-6 py-6 space-y-6">
       {/* 헤더 */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">프로젝트 관리</h1>
-          <p className="text-gray-600 mt-1">전체 프로젝트를 관리하고 진행 상황을 확인합니다.</p>
+          <h1 className="text-3xl font-bold tracking-tight">프로젝트 관리</h1>
+          <p className="text-muted-foreground mt-1">전체 프로젝트를 관리하고 진행 상황을 확인합니다.</p>
         </div>
         
         {userProfile?.role === 'admin' && (
-          <button 
-            onClick={() => setShowCreateModal(true)}
-            className="btn btn-primary"
-          >
-            + 새 프로젝트
-          </button>
+          <Button onClick={() => setShowCreateModal(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            새 프로젝트
+          </Button>
         )}
       </div>
 
-      {/* 필터 및 뷰 모드 */}
+      {/* 필터 및 검색 - shadcn/ui */}
       <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        {/* 첫 번째 줄: 탭 필터와 검색 */}
+        <div className="flex items-center gap-4">
           {/* 탭 필터 */}
-          <div className="flex gap-1 p-1 bg-gray-100 rounded-lg">
-            {['all', 'active', 'completed'].map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setSelectedTab(tab as any)}
-                className={`
-                  px-4 py-2 rounded-md font-medium transition-all
-                  ${selectedTab === tab 
-                    ? 'bg-white text-gray-900 shadow-sm' 
-                    : 'text-gray-600 hover:text-gray-900'
-                  }
-                `}
-              >
-                {tab === 'all' ? `전체 (${projects.length})` : 
-                 tab === 'active' ? `진행 중 (${projects.filter(p => p.status !== 'completed').length})` : 
-                 `완료 (${projects.filter(p => p.status === 'completed').length})`}
-              </button>
-            ))}
+          <Tabs value={selectedTab} onValueChange={(v) => setSelectedTab(v as any)}>
+            <TabsList>
+              <TabsTrigger value="all">전체 ({projects.length})</TabsTrigger>
+              <TabsTrigger value="active">진행 중 ({projects.filter(p => p.status !== 'completed').length})</TabsTrigger>
+              <TabsTrigger value="completed">완료 ({projects.filter(p => p.status === 'completed').length})</TabsTrigger>
+            </TabsList>
+          </Tabs>
+
+          {/* 검색 */}
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+            <Input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="프로젝트 검색..."
+              className="pl-10"
+            />
           </div>
 
           {/* 뷰 모드 전환 */}
-          <div className="flex gap-2">
-            <button
+          <div className="flex gap-1">
+            <Button
+              variant={viewMode === 'table' ? 'secondary' : 'ghost'}
+              size="icon"
               onClick={() => setViewMode('table')}
-              className={`p-2 rounded-lg ${viewMode === 'table' ? 'bg-gray-200' : 'hover:bg-gray-100'}`}
             >
-              📋
-            </button>
-            <button
+              <LayoutList className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
+              size="icon"
               onClick={() => setViewMode('grid')}
-              className={`p-2 rounded-lg ${viewMode === 'grid' ? 'bg-gray-200' : 'hover:bg-gray-100'}`}
             >
-              🔲
-            </button>
+              <LayoutGrid className="h-4 w-4" />
+            </Button>
           </div>
         </div>
 
-        {/* 검색 */}
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="flex-1">
-            <div className="relative">
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="🔍 프로젝트 검색..."
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
-              />
-              <span className="absolute left-3 top-2.5 text-gray-400">🔍</span>
-            </div>
+        {/* 두 번째 줄: 상태 필터와 정렬 */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          {/* 상태 필터 */}
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant={filterStatus === 'all' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setFilterStatus('all')}
+            >
+              전체
+            </Button>
+            {Object.entries(statusLabels).map(([status, label]) => (
+              <Button
+                key={status}
+                variant={filterStatus === status ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setFilterStatus(status as any)}
+              >
+                {label}
+              </Button>
+            ))}
           </div>
-        </div>
 
-        {/* 상태 필터 탭 */}
-        <div className="flex gap-2 flex-wrap">
-          <button
-            onClick={() => setFilterStatus('all')}
-            className={`px-4 py-2 rounded-lg transition-colors ${
-              filterStatus === 'all' 
-                ? 'bg-gray-800 text-white' 
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            전체
-          </button>
-          {Object.entries(statusLabels).map(([status, label]) => (
-            <button
-              key={status}
-              onClick={() => setFilterStatus(status as any)}
-              className={`px-4 py-2 rounded-lg transition-colors ${
-                filterStatus === status 
-                  ? `${statusColors[status as Project['status']]}` 
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {/* 정렬 옵션 */}
-        <div className="flex gap-2">
-          <span className="text-sm text-gray-600 py-2">정렬:</span>
-          {[
-            { value: 'date', label: '최신순', icon: '📅' },
-            { value: 'name', label: '이름순', icon: '🔤' },
-            { value: 'progress', label: '진행률순', icon: '📊' }
-          ].map(sort => (
-            <button
-              key={sort.value}
-              onClick={() => setSortBy(sort.value as any)}
-              className={`px-3 py-1 rounded-lg text-sm transition-colors ${
-                sortBy === sort.value 
-                  ? 'bg-primary text-white' 
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              {sort.icon} {sort.label}
-            </button>
-          ))}
+          {/* 정렬 옵션 */}
+          <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
+            <SelectTrigger className="w-[160px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="date">
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4" />
+                  최신순
+                </div>
+              </SelectItem>
+              <SelectItem value="name">
+                <div className="flex items-center gap-2">
+                  <FolderOpen className="h-4 w-4" />
+                  이름순
+                </div>
+              </SelectItem>
+              <SelectItem value="progress">
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4" />
+                  진행률순
+                </div>
+              </SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
       {/* 프로젝트 목록 */}
       {filteredProjects.length === 0 ? (
-        <div className="bg-white rounded-xl shadow-sm p-12 text-center">
-          <div className="text-gray-400 mb-4">
+        <Card className="p-12 text-center">
+          <div className="text-muted-foreground mb-4">
             <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
             </svg>
           </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
+          <h3 className="text-lg font-medium mb-2">
             {searchTerm || filterStatus !== 'all' ? '검색 결과가 없습니다' : '프로젝트가 없습니다'}
           </h3>
-          <p className="text-gray-600 mb-4">
+          <p className="text-muted-foreground mb-4">
             {searchTerm || filterStatus !== 'all' 
               ? '다른 검색어나 필터를 시도해보세요.' 
               : userProfile?.role === 'admin' 
@@ -324,195 +325,176 @@ export default function ProjectsPage() {
                 : '아직 할당된 프로젝트가 없습니다.'}
           </p>
           {userProfile?.role === 'admin' && !searchTerm && filterStatus === 'all' && (
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="btn btn-primary mx-auto"
-            >
+            <Button onClick={() => setShowCreateModal(true)}>
+              <Plus className="mr-2 h-4 w-4" />
               새 프로젝트 만들기
-            </button>
+            </Button>
           )}
-        </div>
+        </Card>
       ) : viewMode === 'table' ? (
-        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  프로젝트
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  상태
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  진행률
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  팀
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  예산
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  기간
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  액션
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+        <div className="overflow-hidden rounded-lg border bg-card">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[300px]">프로젝트</TableHead>
+                <TableHead>상태</TableHead>
+                <TableHead>진행률</TableHead>
+                <TableHead>팀</TableHead>
+                <TableHead>예산</TableHead>
+                <TableHead>기간</TableHead>
+                <TableHead className="text-right">액션</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {filteredProjects.map((project) => (
-                <motion.tr
+                <TableRow
                   key={project.id}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="hover:bg-gray-50 transition-colors cursor-pointer"
+                  className="cursor-pointer"
                   onClick={() => router.push(`/projects/${project.id}`)}
                 >
-                  <td className="px-6 py-4">
+                  <TableCell>
                     <div>
-                      <div className="text-sm font-medium text-gray-900">{project.name}</div>
-                      <div className="text-sm text-gray-500">{project.description}</div>
+                      <div className="font-medium">{project.name}</div>
+                      <div className="text-sm text-muted-foreground">{project.description}</div>
                     </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColors[project.status]}`}>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={statusVariants[project.status]}>
                       {statusLabels[project.status]}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1 bg-gray-200 rounded-full h-2">
-                        <div
-                          className="bg-primary h-2 rounded-full"
-                          style={{ width: `${project.progress}%` }}
-                        />
-                      </div>
-                      <span className="text-sm text-gray-600">{project.progress}%</span>
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-3 min-w-[120px]">
+                      <Progress value={project.progress} className="flex-1" />
+                      <span className="text-sm font-medium w-10 text-right">{project.progress}%</span>
                     </div>
-                  </td>
-                  <td className="px-6 py-4">
+                  </TableCell>
+                  <TableCell>
                     <div className="flex -space-x-2">
                       {project.team?.slice(0, 3).map((member, idx) => (
                         <div
                           key={idx}
-                          className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center text-xs font-medium text-gray-700 border-2 border-white"
+                          className="w-8 h-8 bg-muted rounded-full flex items-center justify-center text-xs font-medium border-2 border-background"
                         >
-                          {member.charAt(0)}
+                          {(typeof member === 'string' ? member : member.name)?.charAt(0) || '?'}
                         </div>
-                      )) || <span className="text-sm text-gray-500">팀 미배정</span>}
+                      )) || <span className="text-sm text-muted-foreground">팀 미배정</span>}
                       {project.team && project.team.length > 3 && (
-                        <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-xs font-medium text-gray-600 border-2 border-white">
+                        <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center text-xs font-medium border-2 border-background">
                           +{project.team.length - 3}
                         </div>
                       )}
                     </div>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-900">
-                    {formatBudget(project.budget)}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-500">
+                  </TableCell>
+                  <TableCell>{formatBudget(project.budget)}</TableCell>
+                  <TableCell className="text-muted-foreground">
                     {project.startDate.toLocaleDateString('ko-KR')} - {project.endDate.toLocaleDateString('ko-KR')}
-                  </td>
-                  <td className="px-6 py-4 text-sm">
-                    <div className="flex gap-2">
-                      <Link href={`/projects/${project.id}/gantt`} className="text-primary hover:text-primary-hover">
-                        간트차트
-                      </Link>
-                      <Link href={`/projects/${project.id}/kanban`} className="text-purple-600 hover:text-purple-700">
-                        칸반보드
-                      </Link>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex gap-2 justify-end" onClick={(e) => e.stopPropagation()}>
+                      <Button asChild variant="ghost" size="sm">
+                        <Link href={`/projects/${project.id}`}>
+                          상세보기
+                        </Link>
+                      </Button>
                       {userProfile?.role === 'admin' && (
-                        <button className="text-gray-600 hover:text-gray-900">
+                        <Button variant="link" size="sm">
                           수정
-                        </button>
+                        </Button>
                       )}
                     </div>
-                  </td>
-                </motion.tr>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
-          </div>
+            </TableBody>
+          </Table>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {filteredProjects.map((project) => (
             <motion.div
               key={project.id}
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="card hover:shadow-lg transition-shadow cursor-pointer"
-              onClick={() => router.push(`/projects/${project.id}`)}
             >
-              <div className="flex justify-between items-start mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">{project.name}</h3>
-                <span className={`px-3 py-1 text-xs font-semibold rounded-full ${statusColors[project.status]}`}>
-                  {statusLabels[project.status]}
-                </span>
-              </div>
-              
-              <p className="text-sm text-gray-600 mb-4">{project.description}</p>
-              
-              <div className="space-y-3">
-                <div>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className="text-gray-600">진행률</span>
-                    <span className="font-medium">{project.progress}%</span>
+              <Card 
+                className="cursor-pointer hover:shadow-lg transition-shadow h-full"
+                onClick={() => router.push(`/projects/${project.id}`)}
+              >
+                <CardHeader>
+                  <div className="flex justify-between items-start">
+                    <CardTitle className="text-lg">{project.name}</CardTitle>
+                    <Badge variant={statusVariants[project.status]}>
+                      {statusLabels[project.status]}
+                    </Badge>
                   </div>
-                  <div className="bg-gray-200 rounded-full h-2">
-                    <div
-                      className="bg-primary h-2 rounded-full"
-                      style={{ width: `${project.progress}%` }}
-                    />
-                  </div>
-                </div>
+                  <CardDescription>{project.description}</CardDescription>
+                </CardHeader>
                 
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">예산</span>
-                  <span className="font-medium">{formatBudget(project.budget)}</span>
-                </div>
-                
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">팀원</span>
-                  <div className="flex -space-x-2">
-                    {project.team?.slice(0, 3).map((member, idx) => (
-                      <div
-                        key={idx}
-                        className="w-6 h-6 bg-gray-300 rounded-full flex items-center justify-center text-xs font-medium text-gray-700 border-2 border-white"
-                      >
-                        {member.charAt(0)}
-                      </div>
-                    )) || <span className="text-sm text-gray-500">팀 미배정</span>}
-                    {project.team && project.team.length > 3 && (
-                      <div className="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center text-xs font-medium text-gray-600 border-2 border-white">
-                        +{project.team.length - 3}
-                      </div>
-                    )}
+                <CardContent className="space-y-4">
+                  <div>
+                    <div className="flex justify-between text-sm mb-2">
+                      <span className="text-muted-foreground">진행률</span>
+                      <span className="font-medium">{project.progress}%</span>
+                    </div>
+                    <Progress value={project.progress} className="h-2" />
                   </div>
-                </div>
-              </div>
-              
-              <div className="pt-4 mt-4 border-t flex gap-2">
-                <Link 
-                  href={`/projects/${project.id}/gantt`}
-                  className="flex-1 text-center px-3 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover transition-colors text-sm"
-                >
-                  간트차트
-                </Link>
-                <Link 
-                  href={`/projects/${project.id}/kanban`}
-                  className="flex-1 text-center px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm"
-                >
-                  칸반보드
-                </Link>
-              </div>
+                  
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div className="flex items-center gap-2">
+                      <DollarSign className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-muted-foreground">예산</span>
+                    </div>
+                    <span className="font-medium text-right">{formatBudget(project.budget)}</span>
+                    
+                    <div className="flex items-center gap-2">
+                      <Users className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-muted-foreground">팀원</span>
+                    </div>
+                    <div className="flex -space-x-2 justify-end">
+                      {project.team?.slice(0, 3).map((member, idx) => (
+                        <div
+                          key={idx}
+                          className="w-6 h-6 bg-muted rounded-full flex items-center justify-center text-xs font-medium border-2 border-background"
+                        >
+                          {(typeof member === 'string' ? member : member.name)?.charAt(0) || '?'}
+                        </div>
+                      )) || <span className="text-sm text-muted-foreground">미배정</span>}
+                      {project.team && project.team.length > 3 && (
+                        <div className="w-6 h-6 bg-muted rounded-full flex items-center justify-center text-xs font-medium border-2 border-background">
+                          +{project.team.length - 3}
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-muted-foreground">기간</span>
+                    </div>
+                    <span className="text-xs text-right text-muted-foreground">
+                      {project.endDate.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })}
+                    </span>
+                  </div>
+                </CardContent>
+                
+                <CardFooter className="pt-0">
+                  <Button
+                    asChild
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Link href={`/projects/${project.id}`}>
+                      상세보기
+                    </Link>
+                  </Button>
+                </CardFooter>
+              </Card>
             </motion.div>
           ))}
         </div>
-      )
-      }
+      )}
 
       {/* 프로젝트 생성 위자드 */}
       <ProjectCreateWizard

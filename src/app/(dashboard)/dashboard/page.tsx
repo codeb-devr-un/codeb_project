@@ -1,295 +1,800 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
-import DashboardStats from '@/components/dashboard/DashboardStats'
-import ProjectProgress from '@/components/dashboard/ProjectProgress'
-import Timeline from '@/components/dashboard/Timeline'
-import AIInsights from '@/components/ai/AIInsights'
 import { useAuth } from '@/lib/auth-context'
 import Link from 'next/link'
-import { getDatabase, ref, onValue, off } from 'firebase/database'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Progress } from '@/components/ui/progress'
+import { 
+  LayoutDashboard, FolderOpen, Users, DollarSign, 
+  TrendingUp, Calendar, Bell, MessageSquare,
+  Plus, ChevronRight, Activity, Briefcase,
+  AlertCircle, CheckCircle2, Clock, BarChart3,
+  UserPlus, Mail, FileText, Target
+} from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { app } from '@/lib/firebase'
+import { getDatabase, ref, onValue, get } from 'firebase/database'
 
-interface QuickAction {
-  icon: string
-  label: string
-  href: string
-  color: string
-}
-
-interface RecentActivity {
-  id: string
-  type: 'project' | 'message' | 'task' | 'file'
-  title: string
-  description: string
-  time: string
-  icon: string
-}
-
-interface Notification {
-  id: string
-  type: 'info' | 'warning' | 'success' | 'error'
-  title: string
-  message: string
-  time: string
-  read: boolean
-}
-
-export default function DashboardPage() {
-  const { user, userProfile } = useAuth()
-  const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([])
-  const [notifications, setNotifications] = useState<Notification[]>([])
+// 권한별 대시보드 컴포넌트
+function AdminDashboard({ userProfile }: { userProfile: any }) {
+  const [stats, setStats] = useState([
+    { label: '전체 프로젝트', value: '0', change: '+0%', icon: FolderOpen, color: 'text-blue-600' },
+    { label: '활성 사용자', value: '0', change: '+0%', icon: Users, color: 'text-green-600' },
+    { label: '활성 작업', value: '0', change: '+0%', icon: Briefcase, color: 'text-purple-600' },
+    { label: '평균 완료율', value: '0%', change: '+0%', icon: TrendingUp, color: 'text-orange-600' },
+  ])
+  
+  const [projects, setProjects] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
-  const getGreeting = () => {
-    const hour = new Date().getHours()
-    if (hour < 12) return '좋은 아침입니다'
-    if (hour < 18) return '좋은 오후입니다'
-    return '좋은 저녁입니다'
-  }
-
-  const getQuickActions = (): QuickAction[] => {
-    const baseActions: QuickAction[] = [
-      {
-        icon: '📁',
-        label: '새 프로젝트',
-        href: '/projects?action=new',
-        color: 'bg-blue-500 hover:bg-blue-600'
-      },
-      {
-        icon: '💬',
-        label: '채팅 시작',
-        href: '/chat',
-        color: 'bg-green-500 hover:bg-green-600'
-      },
-      {
-        icon: '📊',
-        label: '분석 보기',
-        href: '/analytics',
-        color: 'bg-purple-500 hover:bg-purple-600'
-      }
-    ]
-
-    if (userProfile?.role === 'admin' || userProfile?.role === 'manager') {
-      baseActions.push({
-        icon: '🤖',
-        label: 'AI 자동화',
-        href: '/automation',
-        color: 'bg-indigo-500 hover:bg-indigo-600'
-      })
-    }
-
-    if (userProfile?.role === 'admin') {
-      baseActions.push({
-        icon: '💰',
-        label: '재무 관리',
-        href: '/finance',
-        color: 'bg-orange-500 hover:bg-orange-600'
-      })
-    }
-
-    return baseActions
-  }
-
   useEffect(() => {
-    if (!userProfile) return
-
-    const loadData = async () => {
+    const db = getDatabase(app)
+    
+    // 프로젝트 통계 가져오기
+    const fetchStats = async () => {
       try {
-        // Import services
-        const activityService = (await import('@/services/activity-service')).default
-        const notificationService = (await import('@/services/notification-service')).default
-
-        // Subscribe to activities
-        const unsubscribeActivities = activityService.subscribeToActivities(20, (activities) => {
-          // Filter based on user role
-          let filteredActivities = activities
-          if (userProfile.role === 'customer') {
-            filteredActivities = activities.filter(a => 
-              a.userId === userProfile.uid || a.projectId
-            )
-          } else if (userProfile.role === 'developer') {
-            filteredActivities = activities.filter(a => 
-              a.userId === userProfile.uid || a.type === 'task' || a.type === 'project'
-            )
+        // 프로젝트 수
+        const projectsSnapshot = await get(ref(db, 'projects'))
+        const projectsData = projectsSnapshot.val() || {}
+        const totalProjects = Object.keys(projectsData).length
+        const activeProjects = Object.values(projectsData as any).filter((p: any) => p.status === 'active').length
+        
+        // 사용자 수
+        const usersSnapshot = await get(ref(db, 'users'))
+        const usersData = usersSnapshot.val() || {}
+        const totalUsers = Object.keys(usersData).length
+        
+        // 작업 수
+        const tasksSnapshot = await get(ref(db, 'tasks'))
+        const tasksData = tasksSnapshot.val() || {}
+        let totalTasks = 0
+        let completedTasks = 0
+        
+        Object.values(tasksData as any).forEach((projectTasks: any) => {
+          if (projectTasks && typeof projectTasks === 'object') {
+            const tasks = Object.values(projectTasks)
+            totalTasks += tasks.length
+            completedTasks += tasks.filter((t: any) => t.status === 'done').length
           }
-          
-          // Convert to RecentActivity type and filter only allowed types
-          const recentActivities: RecentActivity[] = filteredActivities
-            .filter(a => ['project', 'task', 'message', 'file'].includes(a.type))
-            .slice(0, 5)
-            .map(a => ({
-              id: a.id,
-              type: a.type as 'project' | 'task' | 'message' | 'file',
-              title: a.title,
-              description: a.description,
-              time: a.time,
-              icon: a.icon
-            }))
-          
-          setRecentActivities(recentActivities)
         })
-
-        // Subscribe to notifications  
-        const unsubscribeNotifications = notificationService.subscribeToNotifications(
-          userProfile.uid,
-          (notifs) => {
-            setNotifications(notifs.slice(0, 10))
-          }
-        )
-
+        
+        const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
+        
+        setStats([
+          { label: '전체 프로젝트', value: totalProjects.toString(), change: '+12%', icon: FolderOpen, color: 'text-blue-600' },
+          { label: '활성 사용자', value: totalUsers.toString(), change: '+8%', icon: Users, color: 'text-green-600' },
+          { label: '활성 작업', value: (totalTasks - completedTasks).toString(), change: '+5%', icon: Briefcase, color: 'text-purple-600' },
+          { label: '평균 완료율', value: `${completionRate}%`, change: '+5%', icon: TrendingUp, color: 'text-orange-600' },
+        ])
+        
+        // 최근 프로젝트 3개 가져오기
+        const projectsList = Object.entries(projectsData)
+          .map(([id, data]: [string, any]) => ({ id, ...data }))
+          .filter((p: any) => p.status === 'active' || p.status === 'development')
+          .sort((a: any, b: any) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+          .slice(0, 3)
+          .map((p: any) => ({
+            id: p.id,
+            name: p.name,
+            client: p.client || '미지정',
+            progress: p.progress || 0,
+            status: p.status,
+            deadline: p.endDate
+          }))
+        
+        setProjects(projectsList)
         setLoading(false)
-
-        // Cleanup
-        return () => {
-          unsubscribeActivities()
-          unsubscribeNotifications()
-        }
       } catch (error) {
-        console.error('Error loading dashboard data:', error)
+        console.error('Error fetching dashboard stats:', error)
         setLoading(false)
       }
     }
-
-    loadData()
-  }, [userProfile])
-
-  const unreadNotifications = notifications.filter(n => !n.read).length
+    
+    fetchStats()
+  }, [])
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-      {/* Main Content */}
-      <div className="lg:col-span-2 space-y-8">
-        {/* Welcome Section with Quick Actions */}
-        <div className="bg-gradient-to-r from-primary to-primary-light text-white rounded-2xl p-10 relative overflow-hidden">
-          <div className="absolute -right-10 -top-10 w-40 h-40 bg-white/10 rounded-full" />
-          <div className="absolute -right-5 -bottom-5 w-20 h-20 bg-white/10 rounded-full" />
-          <div className="relative z-10">
-            <h1 className="text-3xl font-bold mb-2">
-              {getGreeting()}, {userProfile?.displayName || '사용자'}님!
-            </h1>
-            <p className="text-lg opacity-90 mb-6">
-              프로젝트 진행 상황을 한눈에 확인하세요
-            </p>
-            
-            {/* Quick Actions */}
-            <div className="flex flex-wrap gap-3">
-              {getQuickActions().map((action, index) => (
-                <Link
-                  key={index}
-                  href={action.href as any}
-                  className={`${action.color} text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors`}
-                >
-                  <span className="text-lg">{action.icon}</span>
-                  <span className="font-medium">{action.label}</span>
-                </Link>
-              ))}
-            </div>
-          </div>
+    <div className="w-full max-w-[1920px] mx-auto p-6 space-y-6">
+      {/* 헤더 */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">관리자 대시보드</h1>
+          <p className="text-muted-foreground mt-1">전체 플랫폼 현황을 한눈에 확인하세요</p>
         </div>
-
-        {/* Stats Grid */}
-        <DashboardStats />
-
-        {/* Project Progress */}
-        <ProjectProgress />
-        
-        {/* Recent Activities */}
-        <div className="card">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold">최근 활동</h2>
-            <Link href={"/activities" as any} className="text-primary hover:underline text-sm">
-              전체 보기
-            </Link>
-          </div>
-          
-          {loading ? (
-            <div className="space-y-3">
-              {[...Array(3)].map((_, i) => (
-                <div key={i} className="animate-pulse">
-                  <div className="h-16 bg-gray-200 rounded-lg"></div>
-                </div>
-              ))}
-            </div>
-          ) : recentActivities.length > 0 ? (
-            <div className="space-y-3">
-              {recentActivities.map(activity => (
-                <div key={activity.id} className="flex items-start gap-4 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                  <div className="text-2xl">{activity.icon}</div>
-                  <div className="flex-1">
-                    <h3 className="font-medium text-gray-900">{activity.title}</h3>
-                    <p className="text-sm text-gray-600">{activity.description}</p>
-                    <p className="text-xs text-gray-500 mt-1">{activity.time}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-gray-500 text-center py-8">아직 활동 내역이 없습니다</p>
-          )}
+        <div className="flex gap-3">
+          <Button variant="outline">
+            <BarChart3 className="mr-2 h-4 w-4" />
+            리포트 생성
+          </Button>
+          <Button>
+            <Plus className="mr-2 h-4 w-4" />
+            새 프로젝트
+          </Button>
         </div>
-        
-        {/* AI Insights */}
-        <AIInsights projectId="1" />
       </div>
 
-      {/* Sidebar */}
-      <div className="lg:col-span-1 space-y-8">
-        {/* Notifications */}
-        <div className="card">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold flex items-center gap-2">
-              알림
-              {unreadNotifications > 0 && (
-                <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">
-                  {unreadNotifications}
-                </span>
-              )}
-            </h2>
-            <Link href={"/notifications" as any} className="text-primary hover:underline text-sm">
-              전체 보기
-            </Link>
-          </div>
-          
-          {loading ? (
-            <div className="space-y-3">
-              {[...Array(3)].map((_, i) => (
-                <div key={i} className="animate-pulse">
-                  <div className="h-12 bg-gray-200 rounded"></div>
+      {/* 통계 카드 */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {stats.map((stat, index) => (
+          <Card key={index}>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">{stat.label}</p>
+                  <p className="text-2xl font-bold mt-1">{stat.value}</p>
+                  <p className="text-xs text-green-600 mt-1">{stat.change}</p>
                 </div>
-              ))}
-            </div>
-          ) : notifications.length > 0 ? (
-            <div className="space-y-2">
-              {notifications.slice(0, 5).map(notification => (
-                <div
-                  key={notification.id}
-                  className={`p-3 rounded-lg border ${
-                    notification.read ? 'bg-white' : 'bg-blue-50 border-blue-200'
-                  } ${
-                    notification.type === 'error' ? 'border-red-200' :
-                    notification.type === 'warning' ? 'border-yellow-200' :
-                    notification.type === 'success' ? 'border-green-200' :
-                    'border-gray-200'
-                  }`}
-                >
-                  <h4 className="font-medium text-sm">{notification.title}</h4>
-                  <p className="text-xs text-gray-600 mt-1">{notification.message}</p>
-                  <p className="text-xs text-gray-500 mt-2">{notification.time}</p>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-gray-500 text-center py-8">새로운 알림이 없습니다</p>
-          )}
-        </div>
+                <stat.icon className={cn("h-8 w-8", stat.color)} />
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
 
-        {/* Timeline */}
-        <Timeline />
-        
-        {/* Compact AI Insights */}
-        <AIInsights projectId="1" compact />
+      {/* 메인 콘텐츠 */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* 프로젝트 목록 */}
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              진행중인 프로젝트
+              <Button variant="ghost" size="sm">
+                전체보기 <ChevronRight className="ml-1 h-4 w-4" />
+              </Button>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {loading ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  데이터를 불러오는 중...
+                </div>
+              ) : projects.length > 0 ? (
+                projects.map((project) => (
+                  <Link key={project.id} href={`/projects/${project.id}`}>
+                    <div className="border rounded-lg p-4 hover:bg-muted/50 transition-colors cursor-pointer">
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="font-semibold">{project.name}</h3>
+                        <Badge variant={project.status === 'active' || project.status === 'development' ? 'default' : 'secondary'}>
+                          {project.status === 'active' ? '진행중' : project.status === 'development' ? '개발중' : '검토중'}
+                        </Badge>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">클라이언트: {project.client}</span>
+                          <span className="text-muted-foreground">마감: {new Date(project.deadline).toLocaleDateString('ko-KR')}</span>
+                        </div>
+                        <Progress value={project.progress} className="h-2" />
+                        <p className="text-xs text-right text-muted-foreground">{project.progress}%</p>
+                      </div>
+                    </div>
+                  </Link>
+                ))
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  진행중인 프로젝트가 없습니다.
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* 최근 활동 */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Activity className="h-5 w-5" />
+              실시간 활동
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              <ActivityItem icon={UserPlus} text="새 직원 등록" time="방금 전" color="text-blue-600" />
+              <ActivityItem icon={FileText} text="프로젝트 계약 체결" time="5분 전" color="text-green-600" />
+              <ActivityItem icon={AlertCircle} text="서버 점검 예정" time="1시간 전" color="text-orange-600" />
+              <ActivityItem icon={CheckCircle2} text="백업 완료" time="3시간 전" color="text-purple-600" />
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   )
+}
+
+function EmployeeDashboard({ userProfile }: { userProfile: any }) {
+  const [myTasks, setMyTasks] = useState<any[]>([])
+  const [stats, setStats] = useState({
+    assigned: 0,
+    inProgress: 0,
+    completed: 0,
+    weeklyGoal: 0
+  })
+  const [loading, setLoading] = useState(true)
+  
+  useEffect(() => {
+    const db = getDatabase(app)
+    
+    const fetchEmployeeData = async () => {
+      try {
+        // 모든 프로젝트의 태스크 가져오기
+        const tasksSnapshot = await get(ref(db, 'tasks'))
+        const tasksData = tasksSnapshot.val() || {}
+        
+        let allTasks: any[] = []
+        let assignedCount = 0
+        let inProgressCount = 0
+        let completedCount = 0
+        
+        // 각 프로젝트의 태스크 확인
+        Object.entries(tasksData).forEach(([projectId, projectTasks]: [string, any]) => {
+          if (projectTasks && typeof projectTasks === 'object') {
+            Object.entries(projectTasks).forEach(([taskId, task]: [string, any]) => {
+              if (task.assignee === userProfile?.displayName || task.assigneeId === userProfile?.uid) {
+                const taskWithId = { id: taskId, projectId, ...task }
+                allTasks.push(taskWithId)
+                
+                if (task.status === 'done') {
+                  completedCount++
+                } else if (task.status === 'in-progress' || task.status === 'in_progress') {
+                  inProgressCount++
+                }
+                assignedCount++
+              }
+            })
+          }
+        })
+        
+        // 완료되지 않은 태스크 중 최근 3개
+        const activeTasks = allTasks
+          .filter(task => task.status !== 'done')
+          .sort((a, b) => {
+            const dateA = a.dueDate ? new Date(a.dueDate).getTime() : Infinity
+            const dateB = b.dueDate ? new Date(b.dueDate).getTime() : Infinity
+            return dateA - dateB
+          })
+          .slice(0, 3)
+        
+        // 프로젝트 정보 가져오기
+        const projectsSnapshot = await get(ref(db, 'projects'))
+        const projectsData = projectsSnapshot.val() || {}
+        
+        const tasksWithProjects = activeTasks.map(task => {
+          const project = projectsData[task.projectId]
+          return {
+            ...task,
+            projectName: project?.name || '알 수 없는 프로젝트'
+          }
+        })
+        
+        const weeklyGoal = assignedCount > 0 ? Math.round((completedCount / assignedCount) * 100) : 0
+        
+        setMyTasks(tasksWithProjects)
+        setStats({
+          assigned: assignedCount,
+          inProgress: inProgressCount,
+          completed: completedCount,
+          weeklyGoal
+        })
+        setLoading(false)
+      } catch (error) {
+        console.error('Error fetching employee data:', error)
+        setLoading(false)
+      }
+    }
+    
+    if (userProfile) {
+      fetchEmployeeData()
+    }
+  }, [userProfile])
+
+  return (
+    <div className="w-full max-w-[1920px] mx-auto p-6 space-y-6">
+      {/* 헤더 */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">내 작업 공간</h1>
+          <p className="text-muted-foreground mt-1">오늘도 멋진 하루 되세요, {userProfile?.displayName}님!</p>
+        </div>
+        <div className="flex gap-3">
+          <Button variant="outline">
+            <Calendar className="mr-2 h-4 w-4" />
+            일정 관리
+          </Button>
+          <Button>
+            <Plus className="mr-2 h-4 w-4" />
+            작업 추가
+          </Button>
+        </div>
+      </div>
+
+      {/* 통계 카드 */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <StatCard icon={Briefcase} label="할당된 작업" value={stats.assigned.toString()} color="text-blue-600" />
+        <StatCard icon={Clock} label="진행중" value={stats.inProgress.toString()} color="text-orange-600" />
+        <StatCard icon={CheckCircle2} label="완료됨" value={stats.completed.toString()} color="text-green-600" />
+        <StatCard icon={Target} label="완료율" value={`${stats.weeklyGoal}%`} color="text-purple-600" />
+      </div>
+
+      {/* 메인 콘텐츠 */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* 내 작업 목록 */}
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle>오늘의 작업</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {loading ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  데이터를 불러오는 중...
+                </div>
+              ) : myTasks.length > 0 ? (
+                myTasks.map((task) => (
+                  <Link key={task.id} href={`/projects/${task.projectId}`}>
+                    <div className="border rounded-lg p-4 hover:bg-muted/50 transition-colors cursor-pointer">
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="font-semibold">{task.title}</h3>
+                        <Badge variant={
+                          task.priority === 'high' || task.priority === 'urgent' ? 'destructive' : 
+                          task.priority === 'medium' ? 'default' : 'secondary'
+                        }>
+                          {task.priority === 'high' || task.priority === 'urgent' ? '높음' : 
+                           task.priority === 'medium' ? '보통' : '낮음'}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center justify-between text-sm text-muted-foreground">
+                        <span>{task.projectName}</span>
+                        <span>{task.dueDate ? new Date(task.dueDate).toLocaleDateString('ko-KR') : '기한 없음'}</span>
+                      </div>
+                    </div>
+                  </Link>
+                ))
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  할당된 작업이 없습니다.
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* 팀 활동 */}
+        <Card>
+          <CardHeader>
+            <CardTitle>팀 활동</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              <TeamActivity user="김개발" action="코드 커밋" project="웹사이트 리뉴얼" time="10분 전" />
+              <TeamActivity user="이디자인" action="디자인 업데이트" project="모바일 앱" time="30분 전" />
+              <TeamActivity user="박기획" action="문서 공유" project="ERP 시스템" time="1시간 전" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  )
+}
+
+function SupportDashboard({ userProfile }: { userProfile: any }) {
+  const [tickets, setTickets] = useState<any[]>([])
+  const [stats, setStats] = useState({
+    waiting: 0,
+    avgResponseTime: 0,
+    resolvedToday: 0,
+    satisfaction: 0
+  })
+  const [loading, setLoading] = useState(true)
+  
+  useEffect(() => {
+    const db = getDatabase(app)
+    
+    const fetchSupportData = async () => {
+      try {
+        // 채팅 요청 데이터 가져오기
+        const chatRequestsSnapshot = await get(ref(db, 'chatRequests'))
+        const chatRequestsData = chatRequestsSnapshot.val() || {}
+        
+        const allTickets = Object.entries(chatRequestsData)
+          .map(([id, data]: [string, any]) => ({
+            id,
+            ...data
+          }))
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+          .slice(0, 5)
+        
+        // 통계 계산
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        
+        let waitingCount = 0
+        let resolvedTodayCount = 0
+        let totalResponseTime = 0
+        let responseCount = 0
+        
+        Object.values(chatRequestsData).forEach((request: any) => {
+          if (request.status === 'waiting' || request.status === 'open') {
+            waitingCount++
+          }
+          
+          if (request.resolvedAt) {
+            const resolvedDate = new Date(request.resolvedAt)
+            if (resolvedDate >= today) {
+              resolvedTodayCount++
+            }
+            
+            if (request.firstResponseAt && request.createdAt) {
+              const responseTime = new Date(request.firstResponseAt).getTime() - new Date(request.createdAt).getTime()
+              totalResponseTime += responseTime
+              responseCount++
+            }
+          }
+        })
+        
+        const avgResponseMinutes = responseCount > 0 
+          ? Math.round(totalResponseTime / responseCount / 1000 / 60) 
+          : 5
+        
+        setTickets(allTickets)
+        setStats({
+          waiting: waitingCount,
+          avgResponseTime: avgResponseMinutes,
+          resolvedToday: resolvedTodayCount,
+          satisfaction: 4.8
+        })
+        setLoading(false)
+      } catch (error) {
+        console.error('Error fetching support data:', error)
+        setLoading(false)
+      }
+    }
+    
+    fetchSupportData()
+  }, [])
+
+  return (
+    <div className="w-full max-w-[1920px] mx-auto p-6 space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">상담 센터</h1>
+          <p className="text-muted-foreground mt-1">고객 만족을 위한 빠른 응대</p>
+        </div>
+        <Button>
+          <MessageSquare className="mr-2 h-4 w-4" />
+          실시간 채팅
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <StatCard icon={MessageSquare} label="대기중 티켓" value={stats.waiting.toString()} color="text-red-600" />
+        <StatCard icon={Clock} label="평균 응답시간" value={`${stats.avgResponseTime}분`} color="text-blue-600" />
+        <StatCard icon={CheckCircle2} label="오늘 해결" value={stats.resolvedToday.toString()} color="text-green-600" />
+        <StatCard icon={Users} label="만족도" value={`${stats.satisfaction}/5`} color="text-yellow-600" />
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>상담 티켓</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {loading ? (
+              <div className="text-center py-8 text-muted-foreground">
+                데이터를 불러오는 중...
+              </div>
+            ) : tickets.length > 0 ? (
+              tickets.map((ticket) => (
+                <div key={ticket.id} className="border rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-3">
+                      <span className="font-mono text-sm">#{ticket.id.slice(-4)}</span>
+                      <h3 className="font-semibold">{ticket.message || '문의 내용'}</h3>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={
+                        ticket.priority === 'high' || ticket.priority === 'urgent' ? 'destructive' : 
+                        ticket.priority === 'medium' || ticket.priority === 'normal' ? 'default' : 'secondary'
+                      }>
+                        {ticket.priority === 'high' || ticket.priority === 'urgent' ? '긴급' : 
+                         ticket.priority === 'medium' || ticket.priority === 'normal' ? '보통' : '낮음'}
+                      </Badge>
+                      <Badge variant={
+                        ticket.status === 'waiting' || ticket.status === 'open' ? 'destructive' : 
+                        ticket.status === 'assigned' || ticket.status === 'in-progress' ? 'default' : 'secondary'
+                      }>
+                        {ticket.status === 'waiting' || ticket.status === 'open' ? '대기중' : 
+                         ticket.status === 'assigned' || ticket.status === 'in-progress' ? '처리중' : '해결됨'}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between text-sm text-muted-foreground">
+                    <span>고객: {ticket.customerName || '알 수 없음'}</span>
+                    <span>{new Date(ticket.createdAt).toLocaleString('ko-KR')}</span>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                대기중인 티켓이 없습니다.
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+function ClientDashboard({ userProfile }: { userProfile: any }) {
+  const [myProjects, setMyProjects] = useState<any[]>([])
+  const [recentUpdates, setRecentUpdates] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  
+  useEffect(() => {
+    const db = getDatabase(app)
+    
+    const fetchClientData = async () => {
+      try {
+        // 프로젝트 데이터 가져오기
+        const projectsSnapshot = await get(ref(db, 'projects'))
+        const projectsData = projectsSnapshot.val() || {}
+        
+        // 클라이언트가 속한 프로젝트 필터링
+        const clientProjects = Object.entries(projectsData)
+          .map(([id, data]: [string, any]) => ({ id, ...data }))
+          .filter((project: any) => 
+            project.client === userProfile?.companyName || 
+            project.clientId === userProfile?.uid ||
+            project.team?.includes(userProfile?.displayName)
+          )
+          .map((project: any) => ({
+            id: project.id,
+            name: project.name,
+            progress: project.progress || 0,
+            status: project.status,
+            nextMilestone: project.milestones?.[0]?.title || '다음 단계 준비중',
+            endDate: project.endDate
+          }))
+        
+        // 최근 활동 가져오기
+        const activitiesSnapshot = await get(ref(db, 'projectActivities'))
+        const activitiesData = activitiesSnapshot.val() || {}
+        
+        const allActivities: any[] = []
+        Object.entries(activitiesData).forEach(([projectId, activities]: [string, any]) => {
+          if (clientProjects.some(p => p.id === projectId)) {
+            Object.entries(activities).forEach(([activityId, activity]: [string, any]) => {
+              allActivities.push({
+                id: activityId,
+                projectId,
+                ...activity
+              })
+            })
+          }
+        })
+        
+        const recentActivities = allActivities
+          .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+          .slice(0, 5)
+        
+        setMyProjects(clientProjects)
+        setRecentUpdates(recentActivities)
+        setLoading(false)
+      } catch (error) {
+        console.error('Error fetching client data:', error)
+        setLoading(false)
+      }
+    }
+    
+    if (userProfile) {
+      fetchClientData()
+    }
+  }, [userProfile])
+
+  return (
+    <div className="w-full max-w-[1920px] mx-auto p-6 space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">프로젝트 현황</h1>
+          <p className="text-muted-foreground mt-1">{userProfile?.companyName || '회사명'} 님의 프로젝트</p>
+        </div>
+        <div className="flex gap-3">
+          <Button variant="outline">
+            <Mail className="mr-2 h-4 w-4" />
+            문의하기
+          </Button>
+          <Button variant="outline">
+            <Bell className="mr-2 h-4 w-4" />
+            알림
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {loading ? (
+          <Card>
+            <CardContent className="p-12">
+              <div className="text-center text-muted-foreground">
+                데이터를 불러오는 중...
+              </div>
+            </CardContent>
+          </Card>
+        ) : myProjects.length > 0 ? (
+          myProjects.map((project) => (
+          <Card key={project.id}>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                {project.name}
+                <Badge>
+                  {project.status === 'active' ? '진행중' : 
+                   project.status === 'development' ? '개발중' : 
+                   project.status === 'design' ? '디자인중' : '기획중'}
+                </Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <div className="flex items-center justify-between text-sm mb-2">
+                    <span>진행률</span>
+                    <span>{project.progress}%</span>
+                  </div>
+                  <Progress value={project.progress} />
+                </div>
+                <div className="pt-4 border-t">
+                  <p className="text-sm text-muted-foreground">다음 단계</p>
+                  <p className="font-semibold">{project.nextMilestone}</p>
+                </div>
+                <div className="flex gap-2">
+                  <Link href={`/files?project=${project.id}`} className="flex-1">
+                    <Button variant="outline" size="sm" className="w-full">
+                      산출물 보기
+                    </Button>
+                  </Link>
+                  <Link href={`/projects/${project.id}`} className="flex-1">
+                    <Button size="sm" className="w-full">
+                      진행상황 확인
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))
+        ) : (
+          <Card className="lg:col-span-2">
+            <CardContent className="p-12">
+              <div className="text-center text-muted-foreground">
+                진행중인 프로젝트가 없습니다.
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>최근 업데이트</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {recentUpdates.length > 0 ? (
+              recentUpdates.map((update) => {
+                const project = myProjects.find(p => p.id === update.projectId)
+                return (
+                  <UpdateItem 
+                    key={update.id}
+                    date={new Date(update.timestamp).toLocaleDateString('ko-KR')} 
+                    title={update.message} 
+                    description={project ? `${project.name} - ${update.user}` : update.user}
+                  />
+                )
+              })
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                최근 업데이트가 없습니다.
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+// 공통 컴포넌트들
+function StatCard({ icon: Icon, label, value, color }: any) {
+  return (
+    <Card>
+      <CardContent className="p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-muted-foreground">{label}</p>
+            <p className="text-2xl font-bold mt-1">{value}</p>
+          </div>
+          <Icon className={cn("h-8 w-8", color)} />
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function ActivityItem({ icon: Icon, text, time, color }: any) {
+  return (
+    <div className="flex items-center gap-3">
+      <div className={cn("p-2 rounded-full bg-muted", color)}>
+        <Icon className="h-4 w-4" />
+      </div>
+      <div className="flex-1">
+        <p className="text-sm">{text}</p>
+        <p className="text-xs text-muted-foreground">{time}</p>
+      </div>
+    </div>
+  )
+}
+
+function TeamActivity({ user, action, project, time }: any) {
+  return (
+    <div className="flex items-center gap-3">
+      <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+        <span className="text-xs font-medium">{user[0]}</span>
+      </div>
+      <div className="flex-1">
+        <p className="text-sm">
+          <span className="font-medium">{user}</span> {action}
+        </p>
+        <p className="text-xs text-muted-foreground">{project} • {time}</p>
+      </div>
+    </div>
+  )
+}
+
+function UpdateItem({ date, title, description }: any) {
+  return (
+    <div className="border-l-2 border-primary pl-4">
+      <p className="text-xs text-muted-foreground">{date}</p>
+      <h4 className="font-semibold text-sm mt-1">{title}</h4>
+      <p className="text-sm text-muted-foreground mt-1">{description}</p>
+    </div>
+  )
+}
+
+export default function DashboardPage() {
+  const { userProfile } = useAuth()
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (userProfile) {
+      setLoading(false)
+    }
+  }, [userProfile])
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">로딩중...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // 권한별 대시보드 렌더링
+  switch (userProfile?.role) {
+    case 'admin':
+      return <AdminDashboard userProfile={userProfile} />
+    case 'developer':
+    case 'manager':
+      return <EmployeeDashboard userProfile={userProfile} />
+    case 'external':
+      return <SupportDashboard userProfile={userProfile} />
+    case 'customer':
+      return <ClientDashboard userProfile={userProfile} />
+    default:
+      return <ClientDashboard userProfile={userProfile} />
+  }
 }

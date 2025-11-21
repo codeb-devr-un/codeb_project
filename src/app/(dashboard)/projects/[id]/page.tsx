@@ -112,6 +112,8 @@ export default function ProjectDetailPage() {
     startDate: '',
     priority: 'medium'
   })
+  const [editingTask, setEditingTask] = useState<TaskType | null>(null)
+  const [showEditModal, setShowEditModal] = useState(false)
   const [tasks, setTasks] = useState<TaskType[]>([])
   const [kanbanColumns, setKanbanColumns] = useState<KanbanColumn[]>([])
   const [selectedColumnId, setSelectedColumnId] = useState<string>('todo')
@@ -157,7 +159,10 @@ export default function ProjectDetailPage() {
     })
 
     // 태스크 실시간 구독
-    const unsubscribeTasks = taskService.subscribeToTasks(params.id as string, setTasks)
+    const unsubscribeTasks = taskService.subscribeToTasks(params.id as string, (tasks) => {
+      console.log('Tasks loaded:', tasks)
+      setTasks(tasks)
+    })
     const unsubscribeColumns = taskService.subscribeToColumns(params.id as string, setKanbanColumns)
 
     return () => {
@@ -333,29 +338,6 @@ export default function ProjectDetailPage() {
             <p className="text-gray-600">{project.description}</p>
           </div>
           
-          <div className="flex items-center gap-3">
-            {(userProfile?.role === 'admin' || userProfile?.role === 'manager') ? (
-              <div className="flex gap-2">
-                {Object.entries(statusLabels).map(([status, label]) => (
-                  <button
-                    key={status}
-                    onClick={() => updateProjectStatus(status as ProjectDetail['status'])}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      project.status === status
-                        ? statusColors[status]
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <span className={`px-4 py-2 rounded-full text-sm font-medium ${statusColors[project.status]}`}>
-                {statusLabels[project.status]}
-              </span>
-            )}
-          </div>
         </div>
       </div>
 
@@ -562,25 +544,41 @@ export default function ProjectDetailPage() {
                   if (taskUpdates.length > 0) {
                     await taskService.updateTasksOrder(project.id, taskUpdates)
                     await taskService.updateProjectProgress(project.id)
+                    
+                    // 태스크 이동 활동 로그 기록
+                    for (const update of taskUpdates) {
+                      const task = tasks.find(t => t.id === update.id)
+                      const newColumn = columns.find(c => c.id === update.columnId)
+                      if (task && newColumn) {
+                        await taskService.addActivity(project.id, {
+                          type: 'task',
+                          message: `"${task.title}" 작업을 "${newColumn.title}"(으)로 이동`,
+                          user: userProfile?.displayName || '알 수 없음',
+                          icon: '📋'
+                        })
+                      }
+                    }
                   }
                 }}
                 onTaskAdd={(columnId) => {
                   setSelectedColumnId(columnId)
                   setShowTaskModal(true)
                 }}
-                onTaskEdit={async (task) => {
-                  await taskService.updateTask(project.id, task.id, task)
-                  await taskService.updateProjectProgress(project.id)
+                onTaskEdit={(task) => {
+                  setEditingTask(task)
+                  setShowEditModal(true)
                 }}
                 onTaskDelete={async (taskId) => {
-                  await taskService.deleteTask(project.id, taskId)
-                  await taskService.updateProjectProgress(project.id)
-                  await taskService.addActivity(project.id, {
-                    type: 'task',
-                    message: '작업을 삭제했습니다',
-                    user: userProfile?.displayName || '알 수 없음',
-                    icon: '🗑️'
-                  })
+                  if (confirm('정말로 이 작업을 삭제하시겠습니까?')) {
+                    await taskService.deleteTask(project.id, taskId)
+                    await taskService.updateProjectProgress(project.id)
+                    await taskService.addActivity(project.id, {
+                      type: 'task',
+                      message: '작업을 삭제했습니다',
+                      user: userProfile?.displayName || '알 수 없음',
+                      icon: '🗑️'
+                    })
+                  }
                 }}
               />
             </div>
@@ -806,6 +804,150 @@ export default function ProjectDetailPage() {
                 className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover"
               >
                 생성
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 태스크 수정 모달 */}
+      {showEditModal && editingTask && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-semibold mb-4">작업 수정</h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  작업 제목
+                </label>
+                <input
+                  type="text"
+                  value={editingTask.title}
+                  onChange={(e) => setEditingTask({ ...editingTask, title: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                  placeholder="작업 제목을 입력하세요"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  설명
+                </label>
+                <textarea
+                  value={editingTask.description || ''}
+                  onChange={(e) => setEditingTask({ ...editingTask, description: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                  rows={3}
+                  placeholder="작업 설명을 입력하세요"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  담당자
+                </label>
+                <select
+                  value={editingTask.assignee || ''}
+                  onChange={(e) => setEditingTask({ ...editingTask, assignee: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                >
+                  <option value="">담당자 선택</option>
+                  {project.team?.map((member, idx) => (
+                    <option key={idx} value={member}>{member}</option>
+                  ))}
+                </select>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    시작일
+                  </label>
+                  <input
+                    type="date"
+                    value={editingTask.startDate ? new Date(editingTask.startDate).toISOString().split('T')[0] : ''}
+                    onChange={(e) => setEditingTask({ ...editingTask, startDate: e.target.value ? new Date(e.target.value) : undefined })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    마감일
+                  </label>
+                  <input
+                    type="date"
+                    value={editingTask.dueDate ? new Date(editingTask.dueDate).toISOString().split('T')[0] : ''}
+                    onChange={(e) => setEditingTask({ ...editingTask, dueDate: e.target.value ? new Date(e.target.value) : undefined })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  우선순위
+                </label>
+                <select
+                  value={editingTask.priority}
+                  onChange={(e) => setEditingTask({ ...editingTask, priority: e.target.value as TaskPriority })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                >
+                  <option value={TaskPriority.LOW}>낮음</option>
+                  <option value={TaskPriority.MEDIUM}>중간</option>
+                  <option value={TaskPriority.HIGH}>높음</option>
+                  <option value={TaskPriority.URGENT}>긴급</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  상태
+                </label>
+                <select
+                  value={editingTask.columnId}
+                  onChange={(e) => setEditingTask({ ...editingTask, columnId: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                >
+                  {kanbanColumns.map(column => (
+                    <option key={column.id} value={column.id}>{column.title}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowEditModal(false)
+                  setEditingTask(null)
+                }}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                취소
+              </button>
+              <button
+                onClick={async () => {
+                  if (editingTask && project) {
+                    await taskService.updateTask(project.id, editingTask.id, editingTask)
+                    await taskService.updateProjectProgress(project.id)
+                    
+                    // 태스크 수정 활동 로그 기록
+                    await taskService.addActivity(project.id, {
+                      type: 'task',
+                      message: `"${editingTask.title}" 작업을 수정했습니다`,
+                      user: userProfile?.displayName || '알 수 없음',
+                      icon: '✏️'
+                    })
+                    
+                    setShowEditModal(false)
+                    setEditingTask(null)
+                  }
+                }}
+                className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover"
+              >
+                수정 완료
               </button>
             </div>
           </div>

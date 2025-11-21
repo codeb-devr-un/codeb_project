@@ -1,4 +1,6 @@
 import { AIAssistantMessage } from '@/types/ai'
+import { ProjectData, AIMetrics } from '@/types/services'
+import logger from '@/utils/logger'
 
 export interface AIContext {
   projectId?: string
@@ -13,7 +15,13 @@ export interface AIAnalysis {
   title: string
   summary: string
   details: string[]
-  metrics?: Record<string, any>
+  metrics?: {
+    progress: number
+    quality: number
+    budget: number
+    efficiency: number
+    satisfaction: number
+  }
   recommendations?: string[]
   priority?: 'low' | 'medium' | 'high'
 }
@@ -385,7 +393,7 @@ Week 4: 버그 수정 및 최적화 (20%)
         priority
       }
     } catch (error) {
-      console.error('프로젝트 분석 중 오류:', error)
+      logger.error('프로젝트 분석 중 오류', 'AIService', error)
       return this.getDefaultAnalysis()
     }
   }
@@ -416,7 +424,7 @@ Week 4: 버그 수정 및 최적화 (20%)
     }
   }
   
-  private generateAnalysisTitle(projectData: any, aiMetrics: any): string {
+  private generateAnalysisTitle(projectData: ProjectData, aiMetrics: AIMetrics | undefined): string {
     const progress = projectData.progress || 0
     const riskLevel = aiMetrics?.riskMetrics?.overallRiskLevel || 'medium'
     
@@ -431,7 +439,7 @@ Week 4: 버그 수정 및 최적화 (20%)
     }
   }
   
-  private generateAnalysisSummary(projectData: any, aiMetrics: any): string {
+  private generateAnalysisSummary(projectData: ProjectData, aiMetrics: AIMetrics | undefined): string {
     const progress = projectData.progress || 0
     const quality = aiMetrics?.qualityMetrics?.codeQualityScore || 90
     const onTimeRate = aiMetrics?.efficiencyMetrics?.onTimeDeliveryRate || 85
@@ -447,7 +455,7 @@ Week 4: 버그 수정 및 최적화 (20%)
     }
   }
   
-  private generateRecommendations(projectData: any, aiMetrics: any): string[] {
+  private generateRecommendations(projectData: ProjectData, aiMetrics: AIMetrics | undefined): string[] {
     const recommendations: string[] = []
     const progress = projectData.progress || 0
     const quality = aiMetrics?.qualityMetrics?.codeQualityScore || 90
@@ -524,7 +532,7 @@ Week 4: 버그 수정 및 최적화 (20%)
         
         // 리스크 분석
         if (aiMetrics.riskMetrics?.identifiedRisks) {
-          aiMetrics.riskMetrics.identifiedRisks.forEach((risk: any) => {
+          aiMetrics.riskMetrics.identifiedRisks.forEach((risk) => {
             if (risk.probability !== 'low' || risk.impact === 'high') {
               risks.push(risk.description)
             }
@@ -581,7 +589,7 @@ Week 4: 버그 수정 및 최적화 (20%)
       }
       
     } catch (error) {
-      console.error('프로젝트 완료 예측 중 오류:', error)
+      logger.error('프로젝트 완료 예측 중 오류', 'AIService', error)
       return this.getDefaultPrediction()
     }
   }
@@ -601,7 +609,7 @@ Week 4: 버그 수정 및 최적화 (20%)
     }
   }
   
-  private generateDefaultRisks(projectData: any): string[] {
+  private generateDefaultRisks(projectData: ProjectData): string[] {
     const risks: string[] = []
     const progress = projectData.progress || 0
     

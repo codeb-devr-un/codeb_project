@@ -1,5 +1,6 @@
 import { getDatabase, ref, push, set, onValue, off, query, orderByChild, limitToLast } from 'firebase/database'
 import { app } from '@/lib/firebase'
+import logger from '@/utils/logger'
 
 export interface Activity {
   id: string
@@ -31,7 +32,7 @@ class ActivityService {
 
       return newActivityRef.key
     } catch (error) {
-      console.error('Error creating activity:', error)
+      logger.error('Error creating activity', 'ActivityService', error)
       throw error
     }
   }

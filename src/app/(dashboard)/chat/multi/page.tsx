@@ -40,8 +40,8 @@ export default function MultiChatPage() {
       const operatorData = {
         ...status,
         email: user.email || userProfile.email,
-        displayName: userProfile.displayName,
-        role: userProfile.role
+        displayName: userProfile.displayName || user.email || 'Operator',
+        role: userProfile.role || 'operator'
       }
       console.log('Saving operator status:', operatorData)
       await set(ref(database, `operators/${user.uid}`), operatorData)

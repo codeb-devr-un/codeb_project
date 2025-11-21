@@ -16,23 +16,20 @@
   border: 1px solid #e5e7eb;
   border-radius: 0.5rem;
   position: relative;
-  /* Contain the gantt chart */
   width: 100%;
-}
-
-/* Inner content container */
-.ganttWrapper > div {
-  min-width: 1200px;
+  min-width: 100%;
   padding: 1rem;
 }
 
 /* gantt-task-react 라이브러리 스타일 오버라이드 */
 .ganttWrapper :global(.gantt-container) {
-  overflow: visible !important;
+  overflow-x: auto !important;
+  overflow-y: visible !important;
 }
 
 .ganttWrapper :global(.gantt-container-wrapper) {
-  overflow: visible !important;
+  overflow-x: auto !important;
+  overflow-y: visible !important;
 }
 
 /* 스크롤바 스타일 */

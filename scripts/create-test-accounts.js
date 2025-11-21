@@ -1,18 +1,25 @@
 const { initializeApp } = require('firebase/app');
 const { getAuth, createUserWithEmailAndPassword, updateProfile } = require('firebase/auth');
 const { getDatabase, ref, set } = require('firebase/database');
+require('dotenv').config({ path: '../.env.local' });
 
-// Firebase 설정
+// Firebase 설정 - 환경 변수에서 가져오기
 const firebaseConfig = {
-  apiKey: "AIzaSyCDh_fwXU_6BTJWmAHh49THWSdW_cvCbCM",
-  authDomain: "project-cms-b0d78.firebaseapp.com",
-  databaseURL: "https://project-cms-b0d78-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "project-cms-b0d78",
-  storageBucket: "project-cms-b0d78.firebasestorage.app",
-  messagingSenderId: "739720693388",
-  appId: "1:739720693388:web:a462b9bde3480cf9075da9",
-  measurementId: "G-30XDCMLF4F"
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
 };
+
+// 설정 검증
+if (!firebaseConfig.apiKey || !firebaseConfig.authDomain) {
+  console.error('Firebase 설정이 누락되었습니다. .env.local 파일을 확인해주세요.');
+  process.exit(1);
+}
 
 // Firebase 초기화
 const app = initializeApp(firebaseConfig);
@@ -94,10 +101,11 @@ async function createTestAccounts() {
 
     console.log('\n🎉 All test accounts created successfully!');
     console.log('\nTest Accounts:');
-    console.log('- Admin: admin@codeb.com / admin123!');
-    console.log('- Customer 1: customer@test.com / customer123! (Group A)');
-    console.log('- Customer 2: customer2@test.com / customer123! (Group A)');
-    console.log('- Developer: developer@codeb.com / dev123!');
+    console.log('- Admin: admin@codeb.com / [PASSWORD SET IN ENV]');
+    console.log('- Customer 1: customer@test.com / [PASSWORD SET IN ENV]');
+    console.log('- Customer 2: customer2@test.com / [PASSWORD SET IN ENV]');
+    console.log('- Developer: developer@codeb.com / [PASSWORD SET IN ENV]');
+    console.log('\n⚠️  비밀번호는 환경 변수에서 관리되어야 합니다.');
     
     process.exit(0);
   } catch (error) {

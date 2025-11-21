@@ -1,6 +1,6 @@
 import { getDatabase, ref, push, set, get, update, query, orderByChild, equalTo } from 'firebase/database'
 import { app } from '@/lib/firebase'
-import { ProjectInvitation, ExternalUser } from '@/types'
+import { ProjectInvitation, ClientUser } from '@/types'
 
 class InvitationService {
   private db = getDatabase(app)
@@ -18,16 +18,22 @@ class InvitationService {
 
     const invitation: Omit<ProjectInvitation, 'id'> = {
       projectId,
+      projectName: '',
       invitedBy,
       inviteCode,
       email,
+      invitationType: 'link',
+      targetRole: 'client',
       expiresAt,
-      status: 'active',
+      status: 'pending',
       permissions: {
         viewProject: true,
         viewTasks: true,
+        createTasks: false,
         viewFiles: true,
-        viewChat: false
+        uploadFiles: false,
+        viewChat: false,
+        sendChat: false
       },
       createdAt: new Date()
     }
@@ -110,7 +116,7 @@ class InvitationService {
       throw new Error('유효하지 않은 초대 코드입니다.')
     }
 
-    if (invitation.status !== 'active') {
+    if (invitation.status !== 'pending') {
       throw new Error('이미 사용되었거나 만료된 초대입니다.')
     }
 
@@ -128,11 +134,11 @@ class InvitationService {
     })
 
     // 외부 사용자 생성 또는 업데이트
-    await this.createOrUpdateExternalUser(userId, userEmail, invitation)
+    await this.createOrUpdateClientUser(userId, userEmail, invitation)
   }
 
   // 외부 사용자 생성 또는 업데이트
-  private async createOrUpdateExternalUser(
+  private async createOrUpdateClientUser(
     userId: string, 
     email: string, 
     invitation: ProjectInvitation
@@ -211,7 +217,7 @@ class InvitationService {
   }
 
   // 외부 사용자가 접근 가능한 프로젝트 목록 조회
-  async getExternalUserProjects(userId: string): Promise<string[]> {
+  async getClientUserProjects(userId: string): Promise<string[]> {
     const userRef = ref(this.db, `externalUsers/${userId}`)
     const snapshot = await get(userRef)
 

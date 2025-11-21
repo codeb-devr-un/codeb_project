@@ -1,18 +1,30 @@
 const { initializeApp } = require('firebase/app');
 const { getAuth, signInWithEmailAndPassword } = require('firebase/auth');
 const { getDatabase, ref, set, push } = require('firebase/database');
+require('dotenv').config({ path: '../.env.local' });
 
-// Firebase 설정
+// Firebase 설정 - 환경 변수에서 가져오기
 const firebaseConfig = {
-  apiKey: "AIzaSyCDh_fwXU_6BTJWmAHh49THWSdW_cvCbCM",
-  authDomain: "project-cms-b0d78.firebaseapp.com",
-  databaseURL: "https://project-cms-b0d78-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "project-cms-b0d78",
-  storageBucket: "project-cms-b0d78.firebasestorage.app",
-  messagingSenderId: "739720693388",
-  appId: "1:739720693388:web:a462b9bde3480cf9075da9",
-  measurementId: "G-30XDCMLF4F"
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
 };
+
+// 설정 검증
+if (!firebaseConfig.apiKey || !firebaseConfig.authDomain) {
+  console.error('Firebase 설정이 누락되었습니다. .env.local 파일을 확인해주세요.');
+  console.error('필요한 환경 변수:');
+  console.error('- NEXT_PUBLIC_FIREBASE_API_KEY');
+  console.error('- NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN');
+  console.error('- NEXT_PUBLIC_FIREBASE_DATABASE_URL');
+  console.error('- NEXT_PUBLIC_FIREBASE_PROJECT_ID');
+  process.exit(1);
+}
 
 // Firebase 초기화
 const app = initializeApp(firebaseConfig);
@@ -21,9 +33,20 @@ const database = getDatabase(app);
 
 async function seedData() {
   try {
-    // 관리자로 로그인
-    console.log('Logging in as admin...');
-    await signInWithEmailAndPassword(auth, 'admin@codeb.com', 'admin123!');
+    // 관리자로 로그인 - 환경 변수 사용
+    const adminEmail = process.env.SEED_ADMIN_EMAIL || 'admin@codeb.com';
+    const adminPassword = process.env.SEED_ADMIN_PASSWORD;
+    
+    if (!adminPassword) {
+      console.error('\n⚠️  관리자 비밀번호가 설정되지 않았습니다.');
+      console.error('.env.local 파일에 다음을 추가해주세요:');
+      console.error('SEED_ADMIN_EMAIL=admin@codeb.com');
+      console.error('SEED_ADMIN_PASSWORD=your-secure-password\n');
+      process.exit(1);
+    }
+    
+    console.log(`Logging in as admin (${adminEmail})...`);
+    await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
     
     // 샘플 프로젝트 데이터
     const projects = {

@@ -1,5 +1,16 @@
 // 이메일 서비스 - SendGrid 또는 SMTP 사용
 import nodemailer from 'nodemailer'
+import logger from '@/utils/logger'
+import { 
+  EmailServiceTransporter, 
+  EmailSendResult,
+  SendGridMessage,
+  NodemailerMailOptions,
+  EmailTemplateData,
+  EmailTemplateFunction,
+  isSendGridTransporter,
+  isNodemailerTransporter
+} from '@/types/services'
 
 interface EmailOptions {
   to: string | string[]
@@ -35,17 +46,18 @@ class EmailService {
     }
   }
 
-  async sendEmail(options: EmailOptions) {
+  async sendEmail(options: EmailOptions): Promise<EmailSendResult> {
     const { to, subject, html, text, from } = options
     const fromEmail = from || process.env.EMAIL_FROM || 'noreply@codeb.com'
 
     if (!this.transporter) {
       // 개발 환경
-      console.log('📧 Email (Dev Mode):')
-      console.log(`  From: ${fromEmail}`)
-      console.log(`  To: ${Array.isArray(to) ? to.join(', ') : to}`)
-      console.log(`  Subject: ${subject}`)
-      console.log(`  Content: ${text || html}`)
+      logger.debug('📧 Email (Dev Mode):', 'EmailService', {
+        from: fromEmail,
+        to: Array.isArray(to) ? to.join(', ') : to,
+        subject,
+        content: text || html
+      })
       return { success: true, messageId: 'dev-' + Date.now() }
     }
 
@@ -72,28 +84,28 @@ class EmailService {
         })
         return { success: true, messageId: info.messageId }
       }
-    } catch (error: any) {
-      console.error('Email send error:', error)
-      throw new Error(`Failed to send email: ${error.message}`)
+    } catch (error) {
+      logger.error('Email send error', 'EmailService', error)
+      throw new Error(`Failed to send email: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 
-  async sendBulkEmails(emails: EmailOptions[]) {
-    const results = []
+  async sendBulkEmails(emails: EmailOptions[]): Promise<EmailSendResult[]> {
+    const results: EmailSendResult[] = []
     for (const email of emails) {
       try {
         const result = await this.sendEmail(email)
         results.push({ ...result, to: email.to })
-      } catch (error: any) {
-        results.push({ success: false, to: email.to, error: error.message })
+      } catch (error) {
+        results.push({ success: false, to: email.to, error: error instanceof Error ? error.message : 'Unknown error' })
       }
     }
     return results
   }
 
   // 템플릿 기반 이메일 전송
-  async sendTemplateEmail(templateName: string, to: string, data: any) {
-    const templates: Record<string, (data: any) => { subject: string; html: string }> = {
+  async sendTemplateEmail(templateName: string, to: string, data: EmailTemplateData) {
+    const templates: Record<string, EmailTemplateFunction> = {
       welcome: (data) => ({
         subject: `Welcome to CodeB Platform, ${data.name}!`,
         html: `

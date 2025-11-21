@@ -129,8 +129,7 @@ const BasicInfoStep: React.FC<StepProps> = ({ projectData, setProjectData, onNex
               const selectedClient = clients.find(c => c.id === e.target.value)
               setProjectData({ 
                 ...projectData, 
-                clientId: e.target.value,
-                clientGroup: selectedClient?.group // 고객의 그룹 정보도 함께 저장
+                clientId: e.target.value
               })
             }}
             className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary ${
@@ -323,10 +322,15 @@ const TeamStep: React.FC<StepProps> = ({ projectData, setProjectData, onNext, on
   }, [])
 
   const addTeamMember = (member: string) => {
-    if (!projectData.team?.includes(member)) {
+    if (!projectData.team?.some((m: any) => m.userId === member)) {
       setProjectData({
         ...projectData,
-        team: [...(projectData.team || []), member]
+        team: [...(projectData.team || []), {
+          userId: member,
+          name: member,
+          role: 'Developer',
+          joinedAt: new Date()
+        }]
       })
     }
   }
@@ -334,7 +338,7 @@ const TeamStep: React.FC<StepProps> = ({ projectData, setProjectData, onNext, on
   const removeTeamMember = (member: string) => {
     setProjectData({
       ...projectData,
-      team: projectData.team?.filter(m => m !== member) || []
+      team: projectData.team?.filter((m: any) => m.userId !== member) || []
     })
   }
 
@@ -355,9 +359,9 @@ const TeamStep: React.FC<StepProps> = ({ projectData, setProjectData, onNext, on
               <button
                 key={member.id}
                 onClick={() => addTeamMember(member.email)}
-                disabled={projectData.team?.includes(member.email)}
+                disabled={projectData.team?.some((m: any) => m.userId === member.email)}
                 className={`p-3 text-sm border rounded-lg transition-colors ${
-                  projectData.team?.includes(member.email)
+                  projectData.team?.some((m: any) => m.userId === member.email)
                     ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                     : 'hover:bg-gray-50 text-gray-700 border-gray-300'
                 }`}
@@ -414,12 +418,12 @@ const TeamStep: React.FC<StepProps> = ({ projectData, setProjectData, onNext, on
           <div className="space-y-2 max-h-40 overflow-y-auto">
             {projectData.team?.map((member) => (
               <div
-                key={member}
+                key={String(member.userId || member)}
                 className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
               >
-                <span className="text-sm">{member}</span>
+                <span className="text-sm">{String(member.name || member)}</span>
                 <button
-                  onClick={() => removeTeamMember(member)}
+                  onClick={() => removeTeamMember(String(member.userId || member))}
                   className="text-red-500 hover:text-red-700"
                 >
                   삭제
@@ -511,7 +515,7 @@ const ReviewStep: React.FC<StepProps & { onSubmit: () => void }> = ({ projectDat
             {projectData.team && projectData.team.length > 0 ? (
               <div className="space-y-1">
                 {projectData.team.map((member, idx) => (
-                  <div key={idx} className="text-gray-600">• {member}</div>
+                  <div key={idx} className="text-gray-600">• {String(member.name || member)}</div>
                 ))}
               </div>
             ) : (
@@ -560,7 +564,14 @@ export default function ProjectCreateWizard({ isOpen, onClose, onSubmit }: Proje
       budget: projectData.budget!,
       team: projectData.team || [],
       clientId: projectData.clientId!,
-      clientGroup: projectData.clientGroup
+      priority: 'medium',
+      createdBy: '',
+      visibility: 'private',
+      permissions: {
+        viewerIds: [],
+        editorIds: [],
+        adminIds: []
+      }
     }
     
     onSubmit(completeProject)

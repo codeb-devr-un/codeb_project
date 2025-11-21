@@ -94,15 +94,15 @@ export default function ProjectInvitations({ projectId, projectName }: ProjectIn
   }
 
   const getStatusBadge = (status: ProjectInvitation['status']) => {
-    const badges = {
-      active: 'bg-green-100 text-green-700',
-      used: 'bg-blue-100 text-blue-700',
+    const badges: Record<ProjectInvitation['status'], string> = {
+      pending: 'bg-green-100 text-green-700',
+      accepted: 'bg-blue-100 text-blue-700',
       expired: 'bg-gray-100 text-gray-700',
       revoked: 'bg-red-100 text-red-700'
     }
-    const labels = {
-      active: '활성',
-      used: '사용됨',
+    const labels: Record<ProjectInvitation['status'], string> = {
+      pending: '활성',
+      accepted: '사용됨',
       expired: '만료됨',
       revoked: '취소됨'
     }
@@ -183,7 +183,7 @@ export default function ProjectInvitations({ projectId, projectName }: ProjectIn
                     )}
                   </div>
 
-                  {invitation.status === 'active' && (
+                  {invitation.status === 'pending' && (
                     <div className="mt-3 flex items-center gap-2">
                       <input
                         type="text"
@@ -201,7 +201,7 @@ export default function ProjectInvitations({ projectId, projectName }: ProjectIn
                   )}
                 </div>
 
-                {canManageInvitations && invitation.status === 'active' && (
+                {canManageInvitations && invitation.status === 'pending' && (
                   <button
                     onClick={() => revokeInvitation(invitation.id)}
                     className="ml-4 text-red-600 hover:text-red-700"

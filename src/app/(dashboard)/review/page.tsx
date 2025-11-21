@@ -48,7 +48,7 @@ export default function CustomerReviewPage() {
 
   // 고객이 아닌 경우 대시보드로 리다이렉트
   useEffect(() => {
-    if (!loading && userProfile && userProfile.role !== 'customer') {
+    if (!loading && userProfile && userProfile.role !== 'customer' && userProfile.role !== 'external') {
       router.push('/dashboard')
     }
   }, [userProfile, loading, router])
@@ -74,7 +74,7 @@ export default function CustomerReviewPage() {
         
         // 고객은 자신의 프로젝트 또는 같은 그룹의 프로젝트를 볼 수 있음
         let filteredProjects = projectsList
-        if (userProfile.role === 'customer') {
+        if (userProfile.role === 'customer' || userProfile.role === 'external') {
           filteredProjects = projectsList.filter(p => 
             p.clientId === user.uid ||
             (userProfile.group && p.clientGroup === userProfile.group)

@@ -7,6 +7,20 @@ interface IntegrationConfig {
   workspace?: string
 }
 
+import logger from '@/utils/logger'
+import { 
+  GithubIssue, 
+  GithubRepository, 
+  SlackMessage, 
+  SlackAttachment,
+  SlackChannel,
+  GoogleCalendarEvent,
+  GoogleDriveFolder,
+  JiraTicket,
+  TrelloCard,
+  WebhookEvent
+} from '@/types/services'
+
 interface IntegrationEvent {
   type: string
   provider: string
@@ -26,10 +40,10 @@ class IntegrationService {
     })
     
     // 실제 구현에서는 GitHub API로 토큰 검증
-    console.log('GitHub 연동 완료')
+    logger.info('GitHub 연동 완료', 'IntegrationService')
   }
 
-  async createGithubIssue(repo: string, title: string, body: string, labels: string[] = []): Promise<any> {
+  async createGithubIssue(repo: string, title: string, body: string, labels: string[] = []): Promise<GithubIssue> {
     const config = this.integrations.get('github')
     if (!config?.accessToken) {
       throw new Error('GitHub가 연동되지 않았습니다')
@@ -56,7 +70,7 @@ class IntegrationService {
     return mockIssue
   }
 
-  async syncGithubRepository(repo: string): Promise<any> {
+  async syncGithubRepository(repo: string): Promise<GithubRepository> {
     const config = this.integrations.get('github')
     if (!config?.accessToken) {
       throw new Error('GitHub가 연동되지 않았습니다')
@@ -80,10 +94,10 @@ class IntegrationService {
       workspace
     })
     
-    console.log('Slack 연동 완료')
+    logger.info('Slack 연동 완료', 'IntegrationService')
   }
 
-  async sendSlackNotification(channel: string, message: string, attachments?: any[]): Promise<void> {
+  async sendSlackNotification(channel: string, message: string, attachments?: SlackAttachment[]): Promise<void> {
     const config = this.integrations.get('slack')
     if (!config?.webhookUrl) {
       throw new Error('Slack이 연동되지 않았습니다')
@@ -104,10 +118,10 @@ class IntegrationService {
       timestamp: new Date()
     })
 
-    console.log('Slack 메시지 전송:', payload)
+    logger.debug('Slack 메시지 전송', 'IntegrationService', payload)
   }
 
-  async createSlackChannel(name: string, isPrivate: boolean = false): Promise<any> {
+  async createSlackChannel(name: string, isPrivate: boolean = false): Promise<SlackChannel> {
     const config = this.integrations.get('slack')
     if (!config?.webhookUrl) {
       throw new Error('Slack이 연동되지 않았습니다')
@@ -130,7 +144,7 @@ class IntegrationService {
       refreshToken
     })
     
-    console.log('Google Workspace 연동 완료')
+    logger.info('Google Workspace 연동 완료', 'IntegrationService')
   }
 
   async createGoogleCalendarEvent(event: {
@@ -139,7 +153,7 @@ class IntegrationService {
     start: Date
     end: Date
     attendees?: string[]
-  }): Promise<any> {
+  }): Promise<GoogleCalendarEvent> {
     const config = this.integrations.get('google')
     if (!config?.accessToken) {
       throw new Error('Google이 연동되지 않았습니다')
@@ -162,7 +176,7 @@ class IntegrationService {
     return mockEvent
   }
 
-  async createGoogleDriveFolder(name: string, parentId?: string): Promise<any> {
+  async createGoogleDriveFolder(name: string, parentId?: string): Promise<GoogleDriveFolder> {
     const config = this.integrations.get('google')
     if (!config?.accessToken) {
       throw new Error('Google이 연동되지 않았습니다')
@@ -200,10 +214,10 @@ class IntegrationService {
       workspace
     })
     
-    console.log('JIRA 연동 완료')
+    logger.info('JIRA 연동 완료', 'IntegrationService')
   }
 
-  async createJiraTicket(project: string, issueType: string, summary: string, description: string): Promise<any> {
+  async createJiraTicket(project: string, issueType: string, summary: string, description: string): Promise<JiraTicket> {
     const config = this.integrations.get('jira')
     if (!config?.apiKey) {
       throw new Error('JIRA가 연동되지 않았습니다')
@@ -227,10 +241,10 @@ class IntegrationService {
       apiKey
     })
     
-    console.log('Trello 연동 완료')
+    logger.info('Trello 연동 완료', 'IntegrationService')
   }
 
-  async createTrelloCard(listId: string, name: string, desc: string): Promise<any> {
+  async createTrelloCard(listId: string, name: string, desc: string): Promise<TrelloCard> {
     const config = this.integrations.get('trello')
     if (!config?.apiKey) {
       throw new Error('Trello가 연동되지 않았습니다')
@@ -247,8 +261,8 @@ class IntegrationService {
   }
 
   // 웹훅 처리
-  async handleWebhook(provider: string, event: any): Promise<void> {
-    console.log(`Webhook received from ${provider}:`, event)
+  async handleWebhook(provider: string, event: WebhookEvent): Promise<void> {
+    logger.debug(`Webhook received from ${provider}`, 'IntegrationService', event)
     
     // 프로바이더별 웹훅 처리
     switch (provider) {
@@ -259,11 +273,11 @@ class IntegrationService {
         await this.handleSlackWebhook(event)
         break
       default:
-        console.warn(`Unknown webhook provider: ${provider}`)
+        logger.warn(`Unknown webhook provider: ${provider}`, 'IntegrationService')
     }
   }
 
-  private async handleGithubWebhook(event: any): Promise<void> {
+  private async handleGithubWebhook(event: WebhookEvent): Promise<void> {
     // GitHub 웹훅 이벤트 처리
     if (event.action === 'opened' && event.pull_request) {
       this.emitEvent({
@@ -275,7 +289,7 @@ class IntegrationService {
     }
   }
 
-  private async handleSlackWebhook(event: any): Promise<void> {
+  private async handleSlackWebhook(event: WebhookEvent): Promise<void> {
     // Slack 웹훅 이벤트 처리
     if (event.type === 'message') {
       this.emitEvent({
@@ -312,7 +326,7 @@ class IntegrationService {
   // 통합 해제
   disconnect(provider: string): void {
     this.integrations.delete(provider)
-    console.log(`${provider} 연동 해제`)
+    logger.info(`${provider} 연동 해제`, 'IntegrationService')
   }
 
   // 일괄 동기화
