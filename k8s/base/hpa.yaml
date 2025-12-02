@@ -1,0 +1,134 @@
+# =============================================================================
+# Horizontal Pod Autoscaler - Hyperscale Production
+# Target: Auto-scale to handle 100,000 concurrent users
+# =============================================================================
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: codeb-app-hpa
+  namespace: codeb
+  labels:
+    app.kubernetes.io/name: codeb
+    app.kubernetes.io/component: hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: codeb-app
+
+  minReplicas: 10
+  maxReplicas: 100
+
+  metrics:
+    # CPU-based scaling
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+
+    # Memory-based scaling
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+
+    # Custom metrics - requests per second
+    - type: Pods
+      pods:
+        metric:
+          name: http_requests_per_second
+        target:
+          type: AverageValue
+          averageValue: "1000"
+
+    # Custom metrics - response time
+    - type: Pods
+      pods:
+        metric:
+          name: http_request_duration_seconds
+        target:
+          type: AverageValue
+          averageValue: "100m"  # 100ms target
+
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300  # 5 minutes
+      policies:
+        - type: Percent
+          value: 10
+          periodSeconds: 60
+        - type: Pods
+          value: 2
+          periodSeconds: 60
+      selectPolicy: Min
+
+    scaleUp:
+      stabilizationWindowSeconds: 60  # 1 minute
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 15
+        - type: Pods
+          value: 10
+          periodSeconds: 15
+      selectPolicy: Max
+
+---
+# =============================================================================
+# Worker HPA - Scale workers based on queue depth
+# =============================================================================
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: codeb-worker-hpa
+  namespace: codeb
+  labels:
+    app.kubernetes.io/name: codeb
+    app.kubernetes.io/component: worker-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: codeb-worker
+
+  minReplicas: 3
+  maxReplicas: 30
+
+  metrics:
+    # CPU-based scaling
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 75
+
+    # Custom metrics - queue depth
+    - type: External
+      external:
+        metric:
+          name: bullmq_queue_depth
+          selector:
+            matchLabels:
+              queue: email
+        target:
+          type: AverageValue
+          averageValue: "100"
+
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 600  # 10 minutes for workers
+      policies:
+        - type: Percent
+          value: 25
+          periodSeconds: 120
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+        - type: Percent
+          value: 200
+          periodSeconds: 30

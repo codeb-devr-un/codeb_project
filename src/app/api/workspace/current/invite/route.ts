@@ -1,5 +1,10 @@
+// =============================================================================
+// Workspace Current Invite API - CVE-CB-005 Fixed: Secure Logging
+// =============================================================================
+
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { secureLogger, createErrorResponse } from '@/lib/security'
 
 export async function POST(request: Request) {
     try {
@@ -25,9 +30,8 @@ export async function POST(request: Request) {
             )
         }
 
-        // TODO: Send actual invitation email
-        // For now, just log the invitation
-        console.log(`Sending invitation to ${email} (${name})`)
+        // CVE-CB-005: Secure logging - don't log email addresses
+        secureLogger.info('Sending workspace invitation', { operation: 'workspace.current.invite' })
 
         // In a real implementation, you would:
         // 1. Generate a unique invitation token
@@ -40,10 +44,8 @@ export async function POST(request: Request) {
             message: 'Invitation sent successfully',
         })
     } catch (error) {
-        console.error('Failed to send invitation:', error)
-        return NextResponse.json(
-            { error: 'Failed to send invitation' },
-            { status: 500 }
-        )
+        // CVE-CB-005: Secure logging
+        secureLogger.error('Failed to send invitation', error as Error, { operation: 'workspace.current.invite' })
+        return createErrorResponse('Failed to send invitation', 500, 'INVITE_FAILED')
     }
 }

@@ -1,0 +1,11 @@
+# =============================================================================
+# CodeB CMS Namespace - Hyperscale Production
+# =============================================================================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: codeb
+  labels:
+    app.kubernetes.io/name: codeb
+    app.kubernetes.io/component: namespace
+    environment: production

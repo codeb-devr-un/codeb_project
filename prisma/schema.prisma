@@ -2,7 +2,8 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
 }
 
 datasource db {
@@ -23,6 +24,7 @@ enum ProjectStatus {
   testing
   completed
   pending
+  draft
 }
 
 enum ProjectVisibility {
@@ -87,7 +89,78 @@ enum TransactionType {
   EXPENSE
 }
 
-// Models
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  REVOKED
+}
+
+enum JoinRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum ProjectInvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  REVOKED
+}
+
+// ============================================
+// HRIS: Workspace Type & Business Type Enums
+// ============================================
+
+enum WorkspaceType {
+  ENTERPRISE    // 프로젝트 + HR + 급여 (풀패키지)
+  HR_ONLY       // 근태관리 + 급여만 (소상공인용)
+  PROJECT_ONLY  // 프로젝트관리만 (프리랜서/에이전시)
+}
+
+enum BusinessType {
+  RESTAURANT    // 음식점
+  CAFE          // 카페
+  RETAIL        // 소매/편의점
+  BEAUTY        // 미용실/네일샵
+  CLINIC        // 병원/의원
+  ACADEMY       // 학원
+  LOGISTICS     // 물류/배송
+  MANUFACTURING // 제조업
+  IT_SERVICE    // IT/소프트웨어
+  CONSULTING    // 컨설팅
+  OTHER         // 기타
+}
+
+enum OnboardingStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum PayrollType {
+  MONTHLY     // 월급제
+  HOURLY      // 시급제
+  DAILY       // 일급제
+  PROJECT     // 프로젝트 단위
+}
+
+enum EmploymentType {
+  FULL_TIME     // 정규직
+  PART_TIME     // 파트타임
+  CONTRACT      // 계약직
+  INTERN        // 인턴
+  FREELANCER    // 프리랜서
+}
+
+enum EmployeeStatus {
+  ONBOARDING    // 온보딩 진행중
+  ACTIVE        // 재직중
+  ON_LEAVE      // 휴직
+  RESIGNED      // 퇴사
+}
 
 // Models
 
@@ -96,6 +169,18 @@ model Workspace {
   name   String
   domain String? @unique // Optional: for custom domain or subdomain
   plan   String  @default("free") // free, pro, enterprise
+
+  // HRIS: Workspace Type & Business Settings
+  type         WorkspaceType  @default(ENTERPRISE)
+  businessType BusinessType?
+  businessName String?        // 상호명 (ex: "맛있는 김밥집")
+  ownerName    String?        // 대표자명
+
+  // Workspace discovery and joining
+  slug            String  @unique // URL friendly identifier: codeb-team
+  inviteCode      String  @unique // Short invite code: ABC123
+  isPublic        Boolean @default(false) // Public workspaces appear in search
+  requireApproval Boolean @default(true) // Require admin approval for join requests
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -109,6 +194,18 @@ model Workspace {
   transactions  Transaction[]
   announcements Announcement[]
   teams         Team[]
+  workPolicy    WorkPolicy?
+  invitations   Invitation[]
+  joinRequests  JoinRequest[]
+  boards        Board[]
+  events        CalendarEvent[]
+
+  // HRIS Relations
+  features           WorkspaceFeatures?
+  workspaceOnboarding WorkspaceOnboarding?
+  employees          Employee[]
+  workSchedules      WorkSchedule[]
+  payrollRecords     PayrollRecord[]
 }
 
 model WorkspaceMember {
@@ -156,7 +253,25 @@ model User {
   announcements    Announcement[]     @relation("AnnouncementAuthor")
 
   // Team relations
-  teamMemberships TeamMember[]
+  teamMemberships   TeamMember[]
+  presenceCheckLogs PresenceCheckLog[]
+
+  // Invitation and join request relations
+  sentInvitations  Invitation[]  @relation("InvitedBy")
+  joinRequests     JoinRequest[] @relation("JoinRequester")
+  reviewedRequests JoinRequest[] @relation("ReviewedBy")
+
+  // Board and Calendar relations
+  boardPosts       Board[]                 @relation("BoardAuthor")
+  boardComments    BoardComment[]          @relation("BoardCommentAuthor")
+  createdEvents    CalendarEvent[]         @relation("EventCreator")
+  eventAttendances CalendarEventAttendee[] @relation("EventAttendee")
+
+  // Project invitation relations
+  sentProjectInvitations ProjectInvitation[] @relation("ProjectInvitedBy")
+
+  // HRIS: Employee relations
+  employeeProfiles Employee[]
 }
 
 model Project {
@@ -191,6 +306,10 @@ model Project {
   aiMetrics    AIMetrics?
   contracts    Contract[]
   transactions Transaction[]
+  invitations  ProjectInvitation[]
+
+  @@index([status])
+  @@index([workspaceId])
 }
 
 model ProjectMember {
@@ -208,7 +327,7 @@ model ProjectMember {
 
 model Task {
   id          String       @id @default(uuid())
-  projectId   String
+  projectId   String?
   title       String
   description String?
   status      TaskStatus   @default(todo)
@@ -231,6 +350,7 @@ model Task {
 
   // Gantt specific
   progress     Int      @default(0)
+  color        String?  // Custom task color
   dependencies String[] // Array of Task IDs
 
   // Mindmap specific
@@ -239,12 +359,16 @@ model Task {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   // Relations
   attachments TaskAttachment[]
   checklist   ChecklistItem[]
   comments    TaskComment[]
+
+  @@index([projectId, status])
+  @@index([assigneeId, status])
+  @@index([dueDate])
 }
 
 model TaskAttachment {
@@ -324,6 +448,8 @@ model Activity {
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, timestamp])
 }
 
 // ============================================
@@ -476,4 +602,543 @@ model TeamMember {
   @@unique([teamId, userId])
   @@index([teamId])
   @@index([userId])
+}
+
+enum WorkType {
+  FIXED
+  FLEXIBLE
+  CORE_TIME
+}
+
+model WorkPolicy {
+  id          String   @id @default(uuid())
+  workspaceId String?  @unique
+  type        WorkType @default(FIXED)
+
+  dailyRequiredMinutes  Int  @default(480)
+  weeklyRequiredMinutes Int?
+
+  workStartTime String? @default("09:00")
+  workEndTime   String? @default("18:00")
+
+  coreTimeStart String? @default("11:00")
+  coreTimeEnd   String? @default("16:00")
+
+  allowRemoteCheckIn Boolean @default(true)
+
+  autoClockOutEnabled          Boolean @default(true)
+  autoClockOutTime             String? @default("19:30")
+  missingClockOutPenaltyPoints Int     @default(5)
+
+  presenceCheckEnabled          Boolean @default(true)
+  presenceIntervalMinutes       Int     @default(90)
+  presenceResponseWindowMinutes Int     @default(10)
+  presenceMissPenaltyPoints     Int     @default(3)
+  presenceCheckOnlyRemote       Boolean @default(true)
+
+  officeIpWhitelist String[] @default([])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+model PresenceCheckLog {
+  id           String    @id @default(uuid())
+  userId       String
+  attendanceId String
+  triggeredAt  DateTime  @default(now())
+  respondedAt  DateTime?
+  status       String    @default("pending")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, triggeredAt])
+}
+
+// ============================================
+// User Invitation & Join Request Models
+// ============================================
+
+model Invitation {
+  id          String           @id @default(uuid())
+  workspaceId String
+  email       String
+  token       String           @unique
+  role        Role             @default(member)
+  invitedBy   String
+  status      InvitationStatus @default(PENDING)
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  inviter   User      @relation("InvitedBy", fields: [invitedBy], references: [id])
+
+  @@index([email])
+  @@index([token])
+  @@index([workspaceId])
+  @@index([status])
+}
+
+model JoinRequest {
+  id          String            @id @default(uuid())
+  workspaceId String
+  userId      String
+  message     String?
+  status      JoinRequestStatus @default(PENDING)
+  reviewedBy  String?
+  reviewedAt  DateTime?
+  reviewNote  String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation("JoinRequester", fields: [userId], references: [id], onDelete: Cascade)
+  reviewer  User?     @relation("ReviewedBy", fields: [reviewedBy], references: [id])
+
+  @@unique([workspaceId, userId])
+  @@index([userId])
+  @@index([workspaceId, status])
+}
+
+// ============================================
+// Phase 7: Groupware - Board & Calendar
+// ============================================
+
+model Board {
+  id          String   @id @default(uuid())
+  workspaceId String
+  title       String
+  content     String
+  authorId    String
+  category    String   @default("") // , , , 
+  viewCount   Int      @default(0)
+  isPinned    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  author    User           @relation("BoardAuthor", fields: [authorId], references: [id])
+  comments  BoardComment[]
+
+  @@index([workspaceId, isPinned, createdAt])
+  @@index([workspaceId, category])
+}
+
+model BoardComment {
+  id        String   @id @default(uuid())
+  boardId   String
+  authorId  String
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  board  Board @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  author User  @relation("BoardCommentAuthor", fields: [authorId], references: [id])
+
+  @@index([boardId, createdAt])
+}
+
+model CalendarEvent {
+  id          String   @id @default(uuid())
+  workspaceId String
+  title       String
+  description String?
+  startDate   DateTime
+  endDate     DateTime
+  location    String?
+  color       String   @default("#3B82F6")
+  isAllDay    Boolean  @default(false)
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace               @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  creator   User                    @relation("EventCreator", fields: [createdBy], references: [id])
+  attendees CalendarEventAttendee[]
+
+  @@index([workspaceId, startDate])
+  @@index([workspaceId, endDate])
+}
+
+model CalendarEventAttendee {
+  id      String @id @default(uuid())
+  eventId String
+  userId  String
+  status  String @default("pending") // pending, accepted, declined
+
+  event CalendarEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user  User          @relation("EventAttendee", fields: [userId], references: [id])
+
+  @@unique([eventId, userId])
+  @@index([eventId])
+  @@index([userId])
+}
+
+// ============================================
+// Phase 8: Project Invitation System
+// ============================================
+
+model ProjectInvitation {
+  id        String                  @id @default(uuid())
+  projectId String
+  email     String
+  token     String                  @unique
+  role      String                  @default("Viewer") // Viewer, Editor, Admin, Developer, Designer, PM
+  invitedBy String
+  status    ProjectInvitationStatus @default(PENDING)
+  expiresAt DateTime
+  acceptedAt DateTime?
+  createdAt DateTime                @default(now())
+  updatedAt DateTime                @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  inviter User    @relation("ProjectInvitedBy", fields: [invitedBy], references: [id])
+
+  @@index([email])
+  @@index([token])
+  @@index([projectId])
+  @@index([status])
+}
+
+// ============================================
+// Phase 9: HRIS - Workspace Features & Settings
+// ============================================
+
+model WorkspaceFeatures {
+  id          String @id @default(uuid())
+  workspaceId String @unique
+
+  // 프로젝트 관리 기능
+  projectEnabled  Boolean @default(true)
+  kanbanEnabled   Boolean @default(true)
+  ganttEnabled    Boolean @default(true)
+  mindmapEnabled  Boolean @default(true)
+  filesEnabled    Boolean @default(true)
+
+  // HR 기능
+  attendanceEnabled Boolean @default(true)
+  employeeEnabled   Boolean @default(true)
+  payrollEnabled    Boolean @default(true)
+  payslipEnabled    Boolean @default(true)
+  leaveEnabled      Boolean @default(true)
+  hrEnabled         Boolean @default(true)
+  organizationEnabled Boolean @default(true)
+
+  // 재무 기능
+  financeEnabled       Boolean @default(true)
+  expenseEnabled       Boolean @default(true)
+  invoiceEnabled       Boolean @default(true)
+  corporateCardEnabled Boolean @default(true)
+
+  // 고급 기능
+  resumeParsingEnabled Boolean @default(false)
+  approvalEnabled      Boolean @default(true)
+  marketingEnabled     Boolean @default(true)
+  automationEnabled    Boolean @default(true)
+  logsEnabled          Boolean @default(true)
+
+  // 그룹웨어 기능
+  announcementEnabled Boolean @default(true)
+  boardEnabled        Boolean @default(true)
+  calendarEnabled     Boolean @default(true)
+  messageEnabled      Boolean @default(true)
+  chatEnabled         Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  workspace  Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  featureAdmins FeatureAdmin[]
+}
+
+// 기능별 관리자 설정
+model FeatureAdmin {
+  id          String @id @default(uuid())
+  featuresId  String
+  userId      String
+  featureKey  String // 'project', 'hr', 'finance', 'groupware', 'advanced'
+
+  createdAt DateTime @default(now())
+
+  features    WorkspaceFeatures @relation(fields: [featuresId], references: [id], onDelete: Cascade)
+
+  @@unique([featuresId, userId, featureKey])
+  @@index([featuresId, featureKey])
+}
+
+model WorkspaceOnboarding {
+  id          String           @id @default(uuid())
+  workspaceId String           @unique
+  status      OnboardingStatus @default(NOT_STARTED)
+
+  // 온보딩 단계 완료 여부
+  basicInfoCompleted     Boolean @default(false) // Step 1: 기본 정보
+  typeSelected           Boolean @default(false) // Step 2: 워크스페이스 타입 선택
+  businessInfoCompleted  Boolean @default(false) // Step 3: 비즈니스 정보 (HR_ONLY)
+  policyConfigured       Boolean @default(false) // Step 4: 근무정책 설정
+  invitationSent         Boolean @default(false) // Step 5: 직원 초대
+
+  // 퀵설정 데이터 (HR_ONLY)
+  quickSetupData Json? // { workPattern, payrollType, minimumWage, weeklyAllowance }
+
+  currentStep Int      @default(1)
+  completedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+// ============================================
+// Phase 10: HRIS - Employee Management
+// ============================================
+
+model Employee {
+  id          String @id @default(uuid())
+  workspaceId String
+  userId      String? // 연동된 User (아직 가입 전이면 null)
+
+  // 기본 정보
+  nameKor       String   // 한글 이름
+  nameEng       String?  // 영문 이름
+  email         String
+  mobile        String?
+  profileImage  String?
+  birthDate     DateTime?
+  gender        String?  // MALE, FEMALE
+
+  // 주소
+  address       String?
+  addressDetail String?
+  zipCode       String?
+
+  // 고용 정보
+  employeeNumber  String?        // 사번
+  employmentType  EmploymentType @default(FULL_TIME)
+  status          EmployeeStatus @default(ONBOARDING)
+  department      String?
+  position        String?        // 직책 (팀장, 파트장)
+  jobTitle        String?        // 직급 (대리, 과장)
+  hireDate        DateTime?
+  resignDate      DateTime?
+
+  // 급여 정보
+  payrollType       PayrollType @default(MONTHLY)
+  baseSalaryMonthly Int?        // 월급 (원)
+  hourlyWage        Int?        // 시급 (원)
+  dailyWage         Int?        // 일급 (원)
+  bankName          String?
+  bankAccount       String?
+  accountHolder     String?
+
+  // 세금/보험 정보
+  residentNumber    String?  // 주민등록번호 (암호화 저장)
+  dependentCount    Int      @default(0) // 부양가족 수
+  taxExemptionRate  Float    @default(0) // 세금 감면율
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  workspace            Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user                 User?                 @relation(fields: [userId], references: [id], onDelete: SetNull)
+  onboarding           EmployeeOnboarding?
+  workScheduleEntries  WorkScheduleEntry[]
+  payrollRecords       PayrollRecord[]
+  experiences          EmployeeExperience[]
+  educations           EmployeeEducation[]
+  certificates         EmployeeCertificate[]
+
+  @@unique([workspaceId, email])
+  @@unique([workspaceId, employeeNumber])
+  @@index([workspaceId, status])
+  @@index([workspaceId, hireDate])
+}
+
+model EmployeeOnboarding {
+  id         String           @id @default(uuid())
+  employeeId String           @unique
+  status     OnboardingStatus @default(NOT_STARTED)
+
+  // 온보딩 단계
+  basicInfoCompleted     Boolean @default(false) // 기본 정보 입력
+  bankInfoCompleted      Boolean @default(false) // 은행 정보 입력
+  taxInfoCompleted       Boolean @default(false) // 세금 정보 입력
+  emergencyInfoCompleted Boolean @default(false) // 긴급 연락처 입력
+  documentsCompleted     Boolean @default(false) // 필수 서류 제출
+
+  // 긴급 연락처
+  emergencyName     String?
+  emergencyRelation String?
+  emergencyPhone    String?
+
+  invitedAt   DateTime?
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+}
+
+// 경력 사항
+model EmployeeExperience {
+  id         String    @id @default(uuid())
+  employeeId String
+  company    String
+  position   String?
+  startDate  DateTime
+  endDate    DateTime?
+  isCurrent  Boolean   @default(false)
+  duties     String?
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+}
+
+// 학력 사항
+model EmployeeEducation {
+  id         String    @id @default(uuid())
+  employeeId String
+  school     String
+  major      String?
+  degree     String?   // 고졸, 학사, 석사, 박사
+  startDate  DateTime?
+  endDate    DateTime?
+  isGraduated Boolean  @default(false)
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+}
+
+// 자격증
+model EmployeeCertificate {
+  id           String    @id @default(uuid())
+  employeeId   String
+  name         String
+  issuer       String?   // 발급기관
+  issueDate    DateTime?
+  expiryDate   DateTime?
+  certificateNo String?  // 자격증 번호
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+}
+
+// ============================================
+// Phase 11: HRIS - Work Schedule (SMB/Part-time)
+// ============================================
+
+model WorkSchedule {
+  id          String   @id @default(uuid())
+  workspaceId String
+  date        DateTime @db.Date  // 근무일
+
+  // 스케줄 설정
+  shiftOpen   Boolean @default(false) // 오픈 (예: 06:00-14:00)
+  shiftMiddle Boolean @default(false) // 미들 (예: 10:00-18:00)
+  shiftClose  Boolean @default(false) // 마감 (예: 14:00-22:00)
+
+  // 시간 커스텀 설정 (null이면 기본값 사용)
+  openStartTime   String? // "06:00"
+  openEndTime     String? // "14:00"
+  middleStartTime String? // "10:00"
+  middleEndTime   String? // "18:00"
+  closeStartTime  String? // "14:00"
+  closeEndTime    String? // "22:00"
+
+  note      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  workspace Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  entries   WorkScheduleEntry[]
+
+  @@unique([workspaceId, date])
+  @@index([workspaceId, date])
+}
+
+model WorkScheduleEntry {
+  id             String @id @default(uuid())
+  workScheduleId String
+  employeeId     String
+  shiftType      String // "OPEN", "MIDDLE", "CLOSE", "CUSTOM"
+
+  // 커스텀 시간 (shiftType이 CUSTOM일 때)
+  customStartTime String?
+  customEndTime   String?
+
+  // 실제 근무 기록 - Attendance 모델로 이관됨
+  // actualCheckIn  DateTime?
+  // actualCheckOut DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  schedule WorkSchedule @relation(fields: [workScheduleId], references: [id], onDelete: Cascade)
+  employee Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([workScheduleId, employeeId])
+  @@index([employeeId])
+}
+
+// ============================================
+// Phase 12: HRIS - Payroll Records
+// ============================================
+
+model PayrollRecord {
+  id          String   @id @default(uuid())
+  workspaceId String
+  employeeId  String
+  periodStart DateTime // 정산 시작일
+  periodEnd   DateTime // 정산 종료일
+
+  // 근무 시간 집계
+  normalHours   Float @default(0) // 기본 근무시간
+  overtimeHours Float @default(0) // 연장 근무시간
+  nightHours    Float @default(0) // 야간 근무시간 (22:00-06:00)
+  holidayHours  Float @default(0) // 휴일 근무시간
+  paidLeaveHours Float @default(0) // 유급휴가 시간
+  unpaidHours   Float @default(0) // 무급 시간
+
+  // 급여 계산 (원)
+  basePay       Int @default(0) // 기본급
+  overtimePay   Int @default(0) // 연장수당 (기본시급 × 1.5)
+  nightPay      Int @default(0) // 야간수당 (기본시급 × 1.5)
+  holidayPay    Int @default(0) // 휴일수당 (기본시급 × 1.5~2.0)
+  weeklyAllowance Int @default(0) // 주휴수당
+  bonusPay      Int @default(0) // 상여금
+  otherAllowance Int @default(0) // 기타수당
+  grossPay      Int @default(0) // 총 지급액
+
+  // 공제 항목
+  incomeTax         Int @default(0) // 소득세
+  localTax          Int @default(0) // 지방소득세
+  nationalPension   Int @default(0) // 국민연금
+  healthInsurance   Int @default(0) // 건강보험
+  longTermCare      Int @default(0) // 장기요양보험
+  employmentInsurance Int @default(0) // 고용보험
+  otherDeduction    Int @default(0) // 기타 공제
+  totalDeduction    Int @default(0) // 총 공제액
+
+  netPay Int @default(0) // 실수령액
+
+  // 상태
+  status    String   @default("DRAFT") // DRAFT, CONFIRMED, PAID
+  paidAt    DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  employee  Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, employeeId, periodStart, periodEnd])
+  @@index([workspaceId, periodStart])
+  @@index([employeeId, periodStart])
 }

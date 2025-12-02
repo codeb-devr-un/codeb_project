@@ -1,14 +1,15 @@
 'use client'
 
-import React, { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import React, { useState, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/lib/auth-context'
 import toast from 'react-hot-toast'
 import QuickLoginButtons from '@/components/auth/QuickLoginButtons'
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { signIn, signInWithGoogle } = useAuth()
   const [formData, setFormData] = useState({
     email: '',
@@ -17,6 +18,9 @@ export default function LoginPage() {
   })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
+  // 로그인 후 리다이렉트 URL
+  const redirectUrl = searchParams?.get('redirect') || '/dashboard'
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -27,10 +31,9 @@ export default function LoginPage() {
       await signIn(formData.email, formData.password)
       toast.success('로그인 성공!')
 
-      // 역할에 따라 다른 페이지로 이동
-      // 모든 사용자 대시보드로 이동
+      // 리다이렉트 URL로 이동
       setTimeout(() => {
-        router.push('/dashboard')
+        router.push(redirectUrl)
       }, 100)
     } catch (err: any) {
       const errorMessage = err.message || '로그인에 실패했습니다.'
@@ -128,7 +131,7 @@ export default function LoginPage() {
               setLoading(true)
               try {
                 await signInWithGoogle()
-                router.push('/dashboard')
+                router.push(redirectUrl)
               } catch (err: any) {
                 setError(err.message || 'Google 로그인에 실패했습니다.')
               } finally {
@@ -164,5 +167,27 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+// 로딩 컴포넌트
+function LoginLoading() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary via-purple-600 to-pink-600">
+      <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
+        <div className="text-center">
+          <h1 className="text-4xl font-bold text-primary mb-2">CodeB</h1>
+          <p className="text-gray-600">로딩 중...</p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoginLoading />}>
+      <LoginContent />
+    </Suspense>
   )
 }

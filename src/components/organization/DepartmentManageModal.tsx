@@ -5,8 +5,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Edit2, Trash2, Plus, Save, X } from 'lucide-react'
-import { toast } from 'react-hot-toast'
+import { Edit2, Trash2, Plus, Save, X, Settings, Palette } from 'lucide-react'
+import { customToast as toast } from '@/components/notification/NotificationToast'
 
 interface Department {
     id: string
@@ -99,10 +99,15 @@ export default function DepartmentManageModal({
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                    <DialogTitle>부서 관리</DialogTitle>
-                    <DialogDescription>
+            <DialogContent className="max-w-2xl bg-white/95 backdrop-blur-2xl border-white/60 rounded-3xl shadow-2xl">
+                <DialogHeader className="pb-4 border-b border-slate-100/50">
+                    <DialogTitle className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                        <div className="p-2 bg-slate-100 rounded-xl">
+                            <Settings className="w-5 h-5 text-slate-600" />
+                        </div>
+                        부서 관리
+                    </DialogTitle>
+                    <DialogDescription className="text-slate-500">
                         부서를 추가, 수정, 삭제할 수 있습니다
                     </DialogDescription>
                 </DialogHeader>
@@ -110,35 +115,51 @@ export default function DepartmentManageModal({
                 <div className="space-y-6 py-4">
                     {/* 기존 부서 목록 */}
                     <div className="space-y-3">
-                        <h3 className="font-semibold">기존 부서</h3>
-                        <div className="space-y-2">
+                        <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">
+                            <Palette className="w-4 h-4 text-slate-400" />
+                            기존 부서 ({departments.length}개)
+                        </h3>
+                        <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
                             {departments.map(dept => (
                                 <div
                                     key={dept.id}
-                                    className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50"
+                                    className={`
+                                        flex items-center gap-3 p-4 rounded-2xl transition-all duration-300
+                                        ${editingId === dept.id
+                                            ? 'bg-lime-50/80 border-2 border-lime-300 shadow-lg shadow-lime-100'
+                                            : 'bg-white/70 border border-slate-100 hover:border-slate-200 hover:shadow-md'
+                                        }
+                                    `}
                                 >
                                     {editingId === dept.id ? (
                                         <>
-                                            <input
-                                                type="color"
-                                                value={editColor}
-                                                onChange={(e) => setEditColor(e.target.value)}
-                                                className="w-10 h-10 rounded cursor-pointer"
-                                            />
+                                            <div className="relative">
+                                                <input
+                                                    type="color"
+                                                    value={editColor}
+                                                    onChange={(e) => setEditColor(e.target.value)}
+                                                    className="w-12 h-12 rounded-xl cursor-pointer border-2 border-white shadow-md"
+                                                />
+                                            </div>
                                             <Input
                                                 value={editName}
                                                 onChange={(e) => setEditName(e.target.value)}
-                                                className="flex-1"
+                                                className="flex-1 rounded-xl bg-white border-slate-200 focus:border-lime-400 focus:ring-lime-400/20"
                                                 placeholder="부서 이름"
                                             />
-                                            <Button size="sm" onClick={handleSaveEdit}>
-                                                <Save className="w-4 h-4 mr-1" />
+                                            <Button
+                                                size="sm"
+                                                onClick={handleSaveEdit}
+                                                className="rounded-xl bg-lime-500 hover:bg-lime-600 text-white font-medium shadow-lg shadow-lime-500/30"
+                                            >
+                                                <Save className="w-4 h-4 mr-1.5" />
                                                 저장
                                             </Button>
                                             <Button
                                                 size="sm"
                                                 variant="outline"
                                                 onClick={() => setEditingId(null)}
+                                                className="rounded-xl border-slate-200 hover:bg-slate-50"
                                             >
                                                 <X className="w-4 h-4" />
                                             </Button>
@@ -146,58 +167,80 @@ export default function DepartmentManageModal({
                                     ) : (
                                         <>
                                             <div
-                                                className="w-10 h-10 rounded"
+                                                className="w-12 h-12 rounded-xl shadow-md border-2 border-white flex items-center justify-center text-white font-bold text-lg"
                                                 style={{ backgroundColor: dept.color }}
-                                            />
+                                            >
+                                                {dept.name[0]}
+                                            </div>
                                             <div className="flex-1">
-                                                <div className="font-medium">{dept.name}</div>
+                                                <div className="font-bold text-slate-900">{dept.name}</div>
+                                                <div className="text-xs text-slate-400 font-medium">{dept.color}</div>
                                             </div>
                                             <Button
                                                 size="sm"
                                                 variant="outline"
                                                 onClick={() => handleEdit(dept)}
+                                                className="rounded-xl border-slate-200 hover:border-lime-300 hover:bg-lime-50 hover:text-lime-600 transition-all"
                                             >
-                                                <Edit2 className="w-4 h-4 mr-1" />
+                                                <Edit2 className="w-4 h-4 mr-1.5" />
                                                 수정
                                             </Button>
                                             <Button
                                                 size="sm"
                                                 variant="outline"
                                                 onClick={() => handleDelete(dept.id)}
+                                                className="rounded-xl border-slate-200 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-600 transition-all"
                                             >
-                                                <Trash2 className="w-4 h-4 mr-1" />
+                                                <Trash2 className="w-4 h-4 mr-1.5" />
                                                 삭제
                                             </Button>
                                         </>
                                     )}
                                 </div>
                             ))}
+                            {departments.length === 0 && (
+                                <div className="text-center py-8 text-slate-400">
+                                    <Palette className="w-12 h-12 mx-auto mb-3 text-slate-200" />
+                                    <p className="font-medium">등록된 부서가 없습니다</p>
+                                    <p className="text-sm mt-1">아래에서 새 부서를 추가해보세요</p>
+                                </div>
+                            )}
                         </div>
                     </div>
 
                     {/* 새 부서 추가 */}
-                    <div className="space-y-3 pt-4 border-t">
-                        <h3 className="font-semibold">새 부서 추가</h3>
-                        <div className="flex items-end gap-3">
+                    <div className="space-y-4 pt-4 border-t border-slate-100/50">
+                        <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">
+                            <Plus className="w-4 h-4 text-lime-500" />
+                            새 부서 추가
+                        </h3>
+                        <div className="flex items-end gap-4 p-4 bg-slate-50/70 rounded-2xl border border-slate-100">
                             <div className="space-y-2">
-                                <Label>색상</Label>
-                                <input
-                                    type="color"
-                                    value={newColor}
-                                    onChange={(e) => setNewColor(e.target.value)}
-                                    className="w-20 h-10 rounded cursor-pointer"
-                                />
+                                <Label className="text-xs font-bold text-slate-500 uppercase tracking-wider">색상</Label>
+                                <div className="relative">
+                                    <input
+                                        type="color"
+                                        value={newColor}
+                                        onChange={(e) => setNewColor(e.target.value)}
+                                        className="w-14 h-12 rounded-xl cursor-pointer border-2 border-white shadow-md"
+                                    />
+                                </div>
                             </div>
                             <div className="flex-1 space-y-2">
-                                <Label>부서 이름</Label>
+                                <Label className="text-xs font-bold text-slate-500 uppercase tracking-wider">부서 이름</Label>
                                 <Input
                                     value={newName}
                                     onChange={(e) => setNewName(e.target.value)}
                                     placeholder="예: 인사팀, 총무팀"
+                                    className="rounded-xl bg-white border-slate-200 focus:border-lime-400 focus:ring-lime-400/20 h-12"
+                                    onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
                                 />
                             </div>
-                            <Button onClick={handleAdd}>
-                                <Plus className="w-4 h-4 mr-1" />
+                            <Button
+                                onClick={handleAdd}
+                                className="rounded-xl h-12 px-6 bg-slate-900 text-lime-400 hover:bg-lime-400 hover:text-slate-900 transition-colors font-bold shadow-lg shadow-slate-900/10"
+                            >
+                                <Plus className="w-4 h-4 mr-1.5" />
                                 추가
                             </Button>
                         </div>

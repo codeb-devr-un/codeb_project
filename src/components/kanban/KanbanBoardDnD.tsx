@@ -3,8 +3,8 @@
 import React, { useState, useEffect } from 'react'
 import { DragDropContext, Droppable, Draggable, DropResult, DroppableProvided, DraggableProvided, DraggableStateSnapshot, DroppableStateSnapshot } from '@hello-pangea/dnd'
 import { KanbanTask, TaskPriority, TaskStatus } from '@/types/task'
+import { getDepartmentColor } from '@/constants/departments'
 import { Input } from '@/components/ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
@@ -53,22 +53,6 @@ const priorityConfig: Record<TaskPriority, { variant: 'default' | 'secondary' | 
     }
 }
 
-// Department configuration
-const DEPARTMENTS = [
-    { id: 'planning', name: '기획', color: '#8B5CF6' },
-    { id: 'development', name: '개발', color: '#3B82F6' },
-    { id: 'design', name: '디자인', color: '#EC4899' },
-    { id: 'operations', name: '운영', color: '#10B981' },
-    { id: 'marketing', name: '마케팅', color: '#F59E0B' },
-]
-
-// Helper function to get department by member
-function getDepartmentByMember(memberId?: string) {
-    // TODO: Get actual member department from API/context
-    // For now, return a random department for demonstration
-    return DEPARTMENTS[Math.floor(Math.random() * DEPARTMENTS.length)]
-}
-
 // Task Item Component
 function TaskItem({ task, index, onEdit, onDelete }: {
     task: KanbanTask
@@ -76,8 +60,8 @@ function TaskItem({ task, index, onEdit, onDelete }: {
     onEdit?: (task: KanbanTask) => void
     onDelete?: (taskId: string) => void
 }) {
-    const department = getDepartmentByMember(task.assigneeId)
-    const departmentColor = department?.color || '#3B82F6'
+    // 부서 기반 컬러 사용 (미지정시 회색)
+    const displayColor = getDepartmentColor(task.department)
 
     return (
         <Draggable draggableId={task.id} index={index}>
@@ -94,7 +78,7 @@ function TaskItem({ task, index, onEdit, onDelete }: {
                 >
                     <Card
                         className="p-3 hover:shadow-md transition-shadow cursor-pointer"
-                        style={{ borderLeft: `4px solid ${departmentColor}` }}
+                        style={{ borderLeft: `4px solid ${displayColor}` }}
                     >
                         <div className="flex justify-between items-start mb-2">
                             <h4 className="text-sm font-medium flex-1">{task.title}</h4>
@@ -133,20 +117,25 @@ function TaskItem({ task, index, onEdit, onDelete }: {
                         )}
 
                         <div className="flex items-center justify-between gap-2">
-                            <div
-                                className="px-2 py-1 rounded-md text-xs font-medium text-white flex items-center gap-1"
-                                style={{ backgroundColor: priorityConfig[task.priority].color }}
-                            >
-                                {React.createElement(priorityConfig[task.priority].icon, { className: "h-3 w-3" })}
-                                {priorityConfig[task.priority].label}
-                            </div>
+                            {(() => {
+                                const config = priorityConfig[task.priority] || priorityConfig[TaskPriority.MEDIUM]
+                                return (
+                                    <div
+                                        className="px-2 py-1 rounded-md text-xs font-medium text-white flex items-center gap-1"
+                                        style={{ backgroundColor: config.color }}
+                                    >
+                                        {React.createElement(config.icon, { className: "h-3 w-3" })}
+                                        {config.label}
+                                    </div>
+                                )
+                            })()}
 
                             {/* Member Avatar with Department Color */}
                             {task.assigneeId ? (
                                 <div
                                     className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-semibold"
-                                    style={{ backgroundColor: departmentColor }}
-                                    title={typeof task.assignee === 'object' && task.assignee?.name ? task.assignee.name : task.assigneeId}
+                                    style={{ backgroundColor: displayColor }}
+                                    title={typeof task.assignee === 'object' && (task.assignee as any)?.name ? (task.assignee as any).name : task.assigneeId}
                                 >
                                     {typeof task.assignee === 'string'
                                         ? task.assignee.charAt(0).toUpperCase()
@@ -156,7 +145,7 @@ function TaskItem({ task, index, onEdit, onDelete }: {
                                 <div className="flex items-center">
                                     <div
                                         className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-semibold"
-                                        style={{ backgroundColor: departmentColor }}
+                                        style={{ backgroundColor: displayColor }}
                                     >
                                         {typeof task.assignee === 'string'
                                             ? task.assignee.charAt(0).toUpperCase()
@@ -319,6 +308,7 @@ function Column({
 export default function KanbanBoardDnD({
     columns: initialColumns,
     onColumnsChange,
+    onTaskAdd,
     onTaskEdit,
     onTaskDelete
 }: KanbanBoardDnDProps) {
@@ -471,38 +461,32 @@ export default function KanbanBoardDnD({
                     />
                 </div>
 
-                <Select value={filterPriority} onValueChange={setFilterPriority}>
-                    <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="우선순위 선택" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">모든 우선순위</SelectItem>
-                        <SelectItem value={TaskPriority.LOW}>
-                            <div className="flex items-center">
-                                <ChevronDown className="h-4 w-4 mr-2" />
-                                낮음
-                            </div>
-                        </SelectItem>
-                        <SelectItem value={TaskPriority.MEDIUM}>
-                            <div className="flex items-center">
-                                <AlertCircle className="h-4 w-4 mr-2" />
-                                중간
-                            </div>
-                        </SelectItem>
-                        <SelectItem value={TaskPriority.HIGH}>
-                            <div className="flex items-center">
-                                <AlertTriangle className="h-4 w-4 mr-2" />
-                                높음
-                            </div>
-                        </SelectItem>
-                        <SelectItem value={TaskPriority.URGENT}>
-                            <div className="flex items-center">
-                                <Flame className="h-4 w-4 mr-2" />
-                                긴급
-                            </div>
-                        </SelectItem>
-                    </SelectContent>
-                </Select>
+                <div className="flex gap-1">
+                    {[
+                        { value: 'all', label: '전체', icon: null, activeStyle: 'bg-slate-100 text-slate-700 ring-2 ring-slate-400' },
+                        { value: TaskPriority.LOW, label: '낮음', icon: ChevronDown, activeStyle: 'bg-green-100 text-green-700 ring-2 ring-green-400' },
+                        { value: TaskPriority.MEDIUM, label: '중간', icon: AlertCircle, activeStyle: 'bg-amber-100 text-amber-700 ring-2 ring-amber-400' },
+                        { value: TaskPriority.HIGH, label: '높음', icon: AlertTriangle, activeStyle: 'bg-orange-100 text-orange-700 ring-2 ring-orange-400' },
+                        { value: TaskPriority.URGENT, label: '긴급', icon: Flame, activeStyle: 'bg-red-100 text-red-700 ring-2 ring-red-400' }
+                    ].map(priority => {
+                        const Icon = priority.icon
+                        return (
+                            <button
+                                key={priority.value}
+                                type="button"
+                                onClick={() => setFilterPriority(priority.value)}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium transition-all ${
+                                    filterPriority === priority.value
+                                        ? priority.activeStyle
+                                        : 'bg-white/60 text-slate-600 hover:bg-slate-100'
+                                }`}
+                            >
+                                {Icon && <Icon className="h-3.5 w-3.5" />}
+                                {priority.label}
+                            </button>
+                        )
+                    })}
+                </div>
             </div>
 
             {/* Kanban Board */}
@@ -517,7 +501,7 @@ export default function KanbanBoardDnD({
                                     key={column.id}
                                     column={column}
                                     tasks={filteredTasks}
-                                    onAddTask={() => setShowAddTask(column.id)}
+                                    onAddTask={onTaskAdd ? () => onTaskAdd(column.id) : () => setShowAddTask(column.id)}
                                     showAddTask={showAddTask === column.id}
                                     setShowAddTask={(show) => setShowAddTask(show ? column.id : null)}
                                     newTaskTitle={newTaskTitle}

@@ -1,7 +1,12 @@
 'use client'
+// =============================================================================
+// Notification Context - CVE-CB-005 Fixed: Development-only Logging
+// =============================================================================
 
 import React, { createContext, useContext, useState, useEffect } from 'react'
 import toast from 'react-hot-toast'
+
+const isDev = process.env.NODE_ENV === 'development'
 
 interface Notification {
   id: string
@@ -90,7 +95,8 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
   const requestPermission = async (): Promise<boolean> => {
     if (!('Notification' in window)) {
-      console.log('이 브라우저는 알림을 지원하지 않습니다.')
+      // CVE-CB-005: Development-only logging
+      if (isDev) console.log('[DEV] 이 브라우저는 알림을 지원하지 않습니다.')
       return false
     }
 
@@ -98,8 +104,9 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       const result = await Notification.requestPermission()
       setPermission(result)
       return result === 'granted'
-    } catch (error) {
-      console.error('알림 권한 요청 실패:', error)
+    } catch {
+      // CVE-CB-005: Silent fail for notification permission
+      if (isDev) console.log('[DEV] 알림 권한 요청 실패')
       return false
     }
   }

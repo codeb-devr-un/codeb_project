@@ -1,7 +1,11 @@
 'use client'
 
+// ===========================================
+// Glass Morphism Automation Page
+// ===========================================
+
 import React, { useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { AnimatePresence, motion } from 'framer-motion'
 import Link from 'next/link'
 import WorkflowBuilder from '@/components/automation/WorkflowBuilder'
 import ServiceStatus from '@/components/automation/ServiceStatus'
@@ -10,15 +14,11 @@ import { useAuth } from '@/lib/auth-context'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Settings, Plus, ChevronLeft, Clock, Play, Pause,
   Trash2, Edit, Zap, CheckCircle, Activity, Timer,
-  Bot, Sparkles, Calendar, Bell, Mail, MessageSquare,
-  Webhook, Database, FileText, Users, HardDrive, Download, File
+  Bot, FileText, Users, Database
 } from 'lucide-react'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { TabsContent } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 
 // Mock 워크플로우 템플릿
@@ -105,16 +105,17 @@ export default function AutomationPage() {
   const [selectedTemplate, setSelectedTemplate] = useState<WorkflowTemplate | undefined>()
 
   // 권한 체크
-  // 권한 체크
   if (userProfile?.role !== 'admin' && userProfile?.role !== 'member') {
     return (
       <div className="flex items-center justify-center h-96">
-        <Card className="w-full max-w-md">
+        <Card variant="glass" className="w-full max-w-md">
           <CardContent className="pt-6">
             <div className="text-center">
-              <Bot className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-              <h2 className="text-2xl font-bold mb-2">접근 권한 없음</h2>
-              <p className="text-muted-foreground">자동화 기능은 관리자와 직원만 사용할 수 있습니다.</p>
+              <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-lime-100 flex items-center justify-center">
+                <Bot className="h-8 w-8 text-lime-600" />
+              </div>
+              <h2 className="text-2xl font-bold text-slate-900 mb-2">접근 권한 없음</h2>
+              <p className="text-slate-500">자동화 기능은 관리자와 직원만 사용할 수 있습니다.</p>
             </div>
           </CardContent>
         </Card>
@@ -128,14 +129,12 @@ export default function AutomationPage() {
 
   const handleSaveWorkflow = (workflowData: Partial<Workflow>) => {
     if (editingWorkflow) {
-      // 수정
       setWorkflows(workflows.map(w =>
         w.id === editingWorkflow.id
           ? { ...editingWorkflow, ...workflowData, updatedAt: new Date() }
           : w
       ))
     } else {
-      // 생성
       const newWorkflow: Workflow = {
         id: Date.now().toString(),
         ...workflowData as any,
@@ -171,6 +170,7 @@ export default function AutomationPage() {
           <Button
             variant="ghost"
             size="icon"
+            className="rounded-xl hover:bg-white/60"
             onClick={() => {
               setShowBuilder(false)
               setEditingWorkflow(undefined)
@@ -178,7 +178,7 @@ export default function AutomationPage() {
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <h1 className="text-3xl font-bold tracking-tight">
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900">
             {editingWorkflow ? '워크플로우 수정' : '워크플로우 생성'}
           </h1>
         </div>
@@ -198,149 +198,169 @@ export default function AutomationPage() {
 
   return (
     <div className="w-full max-w-[1920px] mx-auto px-6 py-6 space-y-6">
-      {/* 헤더 */}
+      {/* 헤더 - Glass Morphism */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">자동화 워크플로우</h1>
-          <p className="text-muted-foreground mt-1">반복적인 작업을 자동화하여 업무 효율성을 높이세요</p>
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900 flex items-center gap-3">
+            <div className="p-2 bg-lime-100 rounded-xl">
+              <Bot className="w-6 h-6 text-lime-600" />
+            </div>
+            자동화 워크플로우
+          </h1>
+          <p className="text-slate-500 mt-2">반복적인 작업을 자동화하여 업무 효율성을 높이세요</p>
           <div className="mt-2">
             <ServiceStatus />
           </div>
         </div>
 
         <div className="flex gap-3">
-          <Button variant="outline" asChild>
+          <Button variant="glass" className="rounded-xl" asChild>
             <Link href="/automation/runs">
               <Clock className="mr-2 h-4 w-4" />
               실행 이력
             </Link>
           </Button>
-          <Button onClick={() => setShowBuilder(true)}>
+          <Button variant="limePrimary" className="rounded-xl" onClick={() => setShowBuilder(true)}>
             <Plus className="mr-2 h-4 w-4" />
             워크플로우 생성
           </Button>
         </div>
       </div>
 
-      {/* 통계 카드 */}
+      {/* 통계 카드 - Glass Morphism */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
+        <Card variant="glass" className="hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">전체 워크플로우</p>
-                <p className="text-2xl font-bold">{workflows.length}</p>
+                <p className="text-sm text-slate-500 font-medium">전체 워크플로우</p>
+                <p className="text-2xl font-bold text-slate-900">{workflows.length}</p>
               </div>
-              <Settings className="h-8 w-8 text-muted-foreground" />
+              <div className="p-3 bg-lime-100 rounded-xl">
+                <Settings className="h-6 w-6 text-lime-600" />
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card variant="glass" className="hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">활성화</p>
-                <p className="text-2xl font-bold">
+                <p className="text-sm text-slate-500 font-medium">활성화</p>
+                <p className="text-2xl font-bold text-slate-900">
                   {workflows.filter(w => w.status === 'active').length}
                 </p>
               </div>
-              <CheckCircle className="h-8 w-8 text-muted-foreground" />
+              <div className="p-3 bg-emerald-100 rounded-xl">
+                <CheckCircle className="h-6 w-6 text-emerald-600" />
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card variant="glass" className="hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">이번 주 실행</p>
-                <p className="text-2xl font-bold">
+                <p className="text-sm text-slate-500 font-medium">이번 주 실행</p>
+                <p className="text-2xl font-bold text-slate-900">
                   {workflows.reduce((sum, w) => sum + w.runCount, 0)}
                 </p>
               </div>
-              <Zap className="h-8 w-8 text-muted-foreground" />
+              <div className="p-3 bg-violet-100 rounded-xl">
+                <Zap className="h-6 w-6 text-violet-600" />
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card variant="glass" className="hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">절약된 시간</p>
-                <p className="text-2xl font-bold">42시간</p>
+                <p className="text-sm text-slate-500 font-medium">절약된 시간</p>
+                <p className="text-2xl font-bold text-slate-900">42시간</p>
               </div>
-              <Timer className="h-8 w-8 text-muted-foreground" />
+              <div className="p-3 bg-amber-100 rounded-xl">
+                <Timer className="h-6 w-6 text-amber-600" />
+              </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* 템플릿 섹션 */}
-      <Card>
+      {/* 템플릿 섹션 - Glass Morphism */}
+      <Card variant="glass">
         <CardHeader>
-          <CardTitle>빠른 시작 템플릿</CardTitle>
+          <CardTitle className="text-slate-900">빠른 시작 템플릿</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {workflowTemplates.map((template) => {
               const Icon = template.icon
               return (
-                <motion.button
+                <button
                   key={template.id}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
                   onClick={() => {
                     setSelectedTemplate(template)
                     setShowBuilder(true)
                   }}
-                  className="p-4 border rounded-lg hover:border-primary hover:shadow-md transition-all text-left"
+                  className="p-4 bg-white/60 border border-white/40 rounded-2xl hover:bg-white/80 hover:shadow-lg hover:-translate-y-0.5 transition-all text-left"
                 >
-                  <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4">
-                    <Icon className="h-6 w-6 text-primary" />
+                  <div className="w-12 h-12 bg-lime-100 rounded-xl flex items-center justify-center mb-4">
+                    <Icon className="h-6 w-6 text-lime-600" />
                   </div>
-                  <h3 className="font-medium mb-1">{template.name}</h3>
-                  <p className="text-sm text-muted-foreground mb-2">{template.description}</p>
-                  <Badge variant="secondary" className="text-xs">
+                  <h3 className="font-medium text-slate-900 mb-1">{template.name}</h3>
+                  <p className="text-sm text-slate-500 mb-2">{template.description}</p>
+                  <Badge className="bg-slate-100 text-slate-600 border-0 text-xs">
                     {template.category}
                   </Badge>
-                </motion.button>
+                </button>
               )
             })}
           </div>
         </CardContent>
       </Card>
 
-      {/* 필터 */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex items-center gap-4">
-            <span className="text-sm font-medium">상태:</span>
-            <Tabs value={filterStatus} onValueChange={(v) => setFilterStatus(v as any)}>
-              <TabsList>
-                <TabsTrigger value="all">전체</TabsTrigger>
-                <TabsTrigger value="active">활성</TabsTrigger>
-                <TabsTrigger value="inactive">비활성</TabsTrigger>
-              </TabsList>
-            </Tabs>
-          </div>
-        </CardContent>
-      </Card>
+      {/* 필터 - Glass Morphism */}
+      <div className="bg-white/60 backdrop-blur-sm rounded-2xl shadow-lg shadow-black/5 p-1.5 border border-white/40 inline-flex">
+        <div className="flex gap-1">
+          {[
+            { id: 'all', label: '전체' },
+            { id: 'active', label: '활성' },
+            { id: 'inactive', label: '비활성' }
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setFilterStatus(tab.id as any)}
+              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                filterStatus === tab.id
+                  ? 'bg-black text-lime-400 shadow-lg'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </div>
 
-      {/* 워크플로우 목록 */}
+      {/* 워크플로우 목록 - Glass Morphism */}
       <div className="space-y-4">
         {filteredWorkflows.length === 0 ? (
-          <Card className="text-center py-12">
+          <Card variant="glass" className="text-center py-12">
             <CardContent>
-              <Bot className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-              <h3 className="text-lg font-semibold mb-2">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-lime-100 flex items-center justify-center">
+                <Bot className="h-8 w-8 text-lime-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-slate-900 mb-2">
                 워크플로우가 없습니다
               </h3>
-              <p className="text-muted-foreground mb-4">
+              <p className="text-slate-500 mb-4">
                 첫 번째 워크플로우를 만들어 업무를 자동화해보세요.
               </p>
-              <Button onClick={() => setShowBuilder(true)}>
+              <Button variant="limePrimary" className="rounded-xl" onClick={() => setShowBuilder(true)}>
                 워크플로우 생성하기
               </Button>
             </CardContent>
@@ -354,22 +374,25 @@ export default function AutomationPage() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, x: -100 }}
               >
-                <Card>
+                <Card variant="glass">
                   <CardContent className="p-6">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2">
-                          <h3 className="text-lg font-semibold">
+                          <h3 className="text-lg font-semibold text-slate-900">
                             {workflow.name}
                           </h3>
-                          <Badge variant={workflow.status === 'active' ? 'default' : 'secondary'}>
+                          <Badge className={cn(
+                            "border-0",
+                            workflow.status === 'active' ? 'bg-lime-100 text-lime-700' : 'bg-slate-100 text-slate-500'
+                          )}>
                             {workflow.status === 'active' ? '활성' : '비활성'}
                           </Badge>
                         </div>
 
-                        <p className="text-muted-foreground mb-4">{workflow.description}</p>
+                        <p className="text-slate-500 mb-4">{workflow.description}</p>
 
-                        <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+                        <div className="flex flex-wrap gap-4 text-sm text-slate-500">
                           <div className="flex items-center gap-1">
                             <Settings className="h-4 w-4" />
                             <span>트리거: {workflow.trigger.name}</span>
@@ -394,7 +417,8 @@ export default function AutomationPage() {
                       <div className="flex items-center gap-2 ml-4">
                         <Button
                           size="icon"
-                          variant={workflow.status === 'active' ? 'default' : 'outline'}
+                          variant={workflow.status === 'active' ? 'limePrimary' : 'glass'}
+                          className="rounded-xl"
                           onClick={() => toggleWorkflowStatus(workflow.id)}
                           title={workflow.status === 'active' ? '비활성화' : '활성화'}
                         >
@@ -403,7 +427,8 @@ export default function AutomationPage() {
 
                         <Button
                           size="icon"
-                          variant="outline"
+                          variant="glass"
+                          className="rounded-xl"
                           onClick={() => {
                             setEditingWorkflow(workflow)
                             setShowBuilder(true)
@@ -415,12 +440,12 @@ export default function AutomationPage() {
 
                         <Button
                           size="icon"
-                          variant="outline"
+                          variant="glass"
+                          className="rounded-xl hover:bg-rose-100"
                           onClick={() => deleteWorkflow(workflow.id)}
-                          className="hover:bg-destructive hover:text-destructive-foreground"
                           title="삭제"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="h-4 w-4 text-rose-500" />
                         </Button>
                       </div>
                     </div>

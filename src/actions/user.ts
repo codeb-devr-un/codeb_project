@@ -1,6 +1,11 @@
 'use server'
 
+// =============================================================================
+// User Server Actions - CVE-CB-005 Fixed: Secure Logging
+// =============================================================================
+
 import { prisma } from '@/lib/prisma'
+import { secureLogger } from '@/lib/security'
 
 export async function getUsers() {
     try {
@@ -20,7 +25,7 @@ export async function getUsers() {
 
         return users
     } catch (error) {
-        console.error('Failed to get users:', error)
+        secureLogger.error('Failed to get users', error as Error, { operation: 'user.list' })
         return []
     }
 }
@@ -45,7 +50,7 @@ export async function getCustomers() {
 
         return users
     } catch (error) {
-        console.error('Failed to get customers:', error)
+        secureLogger.error('Failed to get customers', error as Error, { operation: 'user.listCustomers' })
         return []
     }
 }
@@ -69,7 +74,23 @@ export async function getTeamMembers() {
 
         return users
     } catch (error) {
-        console.error('Failed to get team members:', error)
+        secureLogger.error('Failed to get team members', error as Error, { operation: 'user.listTeamMembers' })
         return []
+    }
+}
+
+export async function getUserTeamColor(userId: string) {
+    try {
+        // Find the team membership for the user
+        const teamMember = await prisma.teamMember.findFirst({
+            where: { userId },
+            include: { team: true }
+        })
+
+        // Return team color or default blue
+        return teamMember?.team.color || '#3B82F6'
+    } catch (error) {
+        secureLogger.error('Failed to get user team color', error as Error, { operation: 'user.getTeamColor' })
+        return '#3B82F6'
     }
 }

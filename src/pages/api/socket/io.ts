@@ -1,14 +1,4 @@
-import { Server as NetServer } from 'http'
-import { Server as SocketIOServer } from 'socket.io'
 import { NextApiRequest, NextApiResponse } from 'next'
-
-export type NextApiResponseServerIO = NextApiResponse & {
-    socket: any & {
-        server: NetServer & {
-            io: SocketIOServer
-        }
-    }
-}
 
 export const config = {
     api: {
@@ -16,37 +6,21 @@ export const config = {
     },
 }
 
-const SocketHandler = (req: NextApiRequest, res: NextApiResponseServerIO) => {
-    if (!res.socket.server.io) {
-        console.log('New Socket.io server...')
-        // adapt Next's net server to http server
-        const httpServer: NetServer = res.socket.server as any
-        const io = new SocketIOServer(httpServer, {
-            path: '/api/socket/io',
-            addTrailingSlash: false,
-        })
+/**
+ * Socket.io status endpoint
+ *
+ * Socket.io server runs as a separate Podman container on port 3011.
+ * This endpoint just provides status information.
+ */
+const SocketHandler = (_req: NextApiRequest, res: NextApiResponse) => {
+    const socketServerUrl = process.env.SOCKET_SERVER_URL || 'http://localhost:3011'
 
-        io.on('connection', (socket) => {
-            console.log('Socket connected:', socket.id)
-
-            socket.on('join-project', (projectId: string) => {
-                socket.join(`project:${projectId}`)
-                console.log(`Socket ${socket.id} joined project:${projectId}`)
-            })
-
-            socket.on('task-moved', (data) => {
-                // Broadcast to everyone in the room except sender
-                socket.to(`project:${data.projectId}`).emit('task-moved', data)
-            })
-
-            socket.on('disconnect', () => {
-                console.log('Socket disconnected:', socket.id)
-            })
-        })
-
-        res.socket.server.io = io
-    }
-    res.end()
+    res.status(200).json({
+        status: 'ok',
+        message: 'Socket.io server is running as a separate service',
+        socketServer: socketServerUrl,
+        path: '/socket.io'
+    })
 }
 
 export default SocketHandler

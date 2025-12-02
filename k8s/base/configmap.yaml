@@ -1,0 +1,108 @@
+# =============================================================================
+# ConfigMaps - Non-sensitive configuration
+# =============================================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: codeb-config
+  namespace: codeb
+  labels:
+    app.kubernetes.io/name: codeb
+    app.kubernetes.io/component: config
+data:
+  # Application URLs
+  nextauth-url: "https://codeb.app"
+  app-url: "https://codeb.app"
+  api-url: "https://api.codeb.app"
+
+  # Feature flags
+  feature-redis-cluster: "true"
+  feature-read-replica: "true"
+  feature-job-queue: "true"
+
+  # Performance settings
+  cache-ttl-short: "60"
+  cache-ttl-medium: "300"
+  cache-ttl-long: "3600"
+
+  # Rate limits
+  rate-limit-window: "60000"
+  rate-limit-max-requests: "100"
+
+  # Logging
+  log-level: "info"
+  log-format: "json"
+
+---
+# =============================================================================
+# Redis Cluster Configuration
+# =============================================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redis-cluster-config
+  namespace: codeb
+data:
+  redis.conf: |
+    # Cluster mode
+    cluster-enabled yes
+    cluster-config-file nodes.conf
+    cluster-node-timeout 5000
+
+    # Memory management
+    maxmemory 2gb
+    maxmemory-policy allkeys-lru
+
+    # Persistence (AOF for durability)
+    appendonly yes
+    appendfsync everysec
+
+    # Performance tuning
+    tcp-keepalive 300
+    timeout 0
+
+    # Security
+    protected-mode yes
+
+    # Disable dangerous commands
+    rename-command FLUSHDB ""
+    rename-command FLUSHALL ""
+    rename-command DEBUG ""
+    rename-command CONFIG ""
+
+---
+# =============================================================================
+# PgBouncer Configuration
+# =============================================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pgbouncer-config
+  namespace: codeb
+data:
+  pgbouncer.ini: |
+    [databases]
+    codeb = host=${POSTGRES_HOST} port=5432 dbname=${POSTGRES_DB}
+    codeb_read = host=${POSTGRES_READ_HOST} port=5432 dbname=${POSTGRES_DB}
+
+    [pgbouncer]
+    listen_addr = 0.0.0.0
+    listen_port = 6432
+    auth_type = scram-sha-256
+    auth_file = /etc/pgbouncer/userlist.txt
+
+    pool_mode = transaction
+    max_client_conn = 10000
+    default_pool_size = 50
+    min_pool_size = 10
+    reserve_pool_size = 5
+
+    server_connect_timeout = 5
+    query_timeout = 30
+    query_wait_timeout = 60
+    client_idle_timeout = 300
+    server_idle_timeout = 600
+
+    log_connections = 1
+    log_disconnections = 1
+    stats_period = 60

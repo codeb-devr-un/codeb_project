@@ -98,7 +98,7 @@ const mockGanttTasks: Task[] = [
 
 export default function GanttPage() {
   const params = useParams()
-  const projectId = params.id as string
+  const projectId = params?.id as string
   const [tasks, setTasks] = useState<Task[]>(mockGanttTasks)
 
   const handleTaskChange = (task: Task) => {

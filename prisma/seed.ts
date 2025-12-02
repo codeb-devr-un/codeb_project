@@ -40,12 +40,59 @@ async function main() {
 
     console.log('✅ Test users created:', { adminUser, memberUser })
 
+    // Create default workspace
+    const workspace = await prisma.workspace.upsert({
+        where: { slug: 'default-workspace' },
+        update: {},
+        create: {
+            name: '기본 워크스페이스',
+            slug: 'default-workspace',
+            domain: 'codeb.com',
+            inviteCode: 'DEFAULT001',
+        },
+    })
+    console.log('✅ Default workspace created:', workspace)
+
+    // Add members to workspace
+    await prisma.workspaceMember.upsert({
+        where: {
+            workspaceId_userId: {
+                workspaceId: workspace.id,
+                userId: adminUser.id,
+            }
+        },
+        update: {},
+        create: {
+            workspaceId: workspace.id,
+            userId: adminUser.id,
+            role: 'admin',
+        }
+    })
+
+    await prisma.workspaceMember.upsert({
+        where: {
+            workspaceId_userId: {
+                workspaceId: workspace.id,
+                userId: memberUser.id,
+            }
+        },
+        update: {},
+        create: {
+            workspaceId: workspace.id,
+            userId: memberUser.id,
+            role: 'member',
+        }
+    })
+
     // Create sample project
     const project = await prisma.project.upsert({
         where: { id: 'sample-project-1' },
-        update: {},
+        update: {
+            workspaceId: workspace.id,
+        },
         create: {
             id: 'sample-project-1',
+            workspaceId: workspace.id,
             name: 'CMS 개발 프로젝트',
             description: '프로젝트 관리 시스템 개발',
             status: 'development',

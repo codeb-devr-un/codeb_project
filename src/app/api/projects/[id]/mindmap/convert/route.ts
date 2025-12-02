@@ -1,5 +1,10 @@
+// =============================================================================
+// Mindmap Convert API - CVE-CB-005 Fixed: Secure Logging
+// =============================================================================
+
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { secureLogger, createErrorResponse } from '@/lib/security'
 
 export async function POST(
     request: Request,
@@ -41,7 +46,8 @@ export async function POST(
 
         return NextResponse.json({ success: true, createdCount: createdTasks.length })
     } catch (error) {
-        console.error('Failed to convert mindmap to tasks:', error)
-        return NextResponse.json({ error: 'Failed to convert tasks' }, { status: 500 })
+        // CVE-CB-005: Secure logging
+        secureLogger.error('Failed to convert mindmap to tasks', error as Error, { operation: 'mindmap.convert' })
+        return createErrorResponse('Failed to convert tasks', 500, 'CONVERT_FAILED')
     }
 }

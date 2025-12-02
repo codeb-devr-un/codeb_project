@@ -4,20 +4,13 @@ import React from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { User, Mail } from 'lucide-react'
+import { DEPARTMENTS, getDepartmentColor, getDepartmentName } from '@/constants/departments'
 
 interface MemberCardProps {
     member: any
     isDragging?: boolean
     showDepartment?: boolean
 }
-
-const DEPARTMENTS = [
-    { id: 'planning', name: '기획', color: '#8B5CF6' },
-    { id: 'development', name: '개발', color: '#3B82F6' },
-    { id: 'design', name: '디자인', color: '#EC4899' },
-    { id: 'operations', name: '운영', color: '#10B981' },
-    { id: 'marketing', name: '마케팅', color: '#F59E0B' },
-]
 
 export default function MemberCard({ member, isDragging = false, showDepartment = false }: MemberCardProps) {
     const {
@@ -35,11 +28,9 @@ export default function MemberCard({ member, isDragging = false, showDepartment 
         opacity: isSortableDragging ? 0.5 : 1,
     }
 
-    // Get department color or use default gradient
-    const department = DEPARTMENTS.find(d => d.id === member.department)
-    const avatarStyle = department
-        ? { backgroundColor: department.color }
-        : { background: 'linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%)' }
+    // Get department color using centralized function
+    const departmentColor = getDepartmentColor(member.department)
+    const deptBgClass = member.department ? `bg-[${departmentColor}]` : 'bg-slate-200'
 
     // Compact layout for member list
     if (showDepartment) {
@@ -49,24 +40,50 @@ export default function MemberCard({ member, isDragging = false, showDepartment 
                 style={style}
                 {...attributes}
                 {...listeners}
-                className={`flex items-center gap-2 p-2 border rounded cursor-move hover:shadow-md transition-shadow ${isDragging ? 'shadow-lg rotate-2' : ''
-                    }`}
+                className={`
+                    relative group bg-white border border-slate-100 rounded-xl shadow-sm
+                    hover:shadow-md hover:border-lime-300 transition-all cursor-grab active:cursor-grabbing p-3
+                    ${isDragging || isSortableDragging ? 'shadow-lg rotate-2 scale-105 opacity-80' : ''}
+                `}
             >
-                <div
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-semibold"
-                    style={avatarStyle}
-                >
-                    {member.name?.[0] || 'U'}
-                </div>
-                <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium truncate">{member.name || '이름 없음'}</div>
-                    <div className="text-xs text-gray-500 truncate">{member.email}</div>
-                </div>
-                {member.department && (
-                    <div className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded">
-                        {DEPARTMENTS.find(d => d.id === member.department)?.name || member.department}
+                <div className="flex items-center gap-3">
+                    {/* Color Indicator Dot */}
+                    <div
+                        className="w-1.5 h-8 rounded-full"
+                        style={{ backgroundColor: member.department ? departmentColor : '#e2e8f0' }}
+                    />
+
+                    {/* Avatar */}
+                    <div
+                        className="w-9 h-9 rounded-lg flex items-center justify-center text-white text-sm font-bold border border-white/50 shadow-sm"
+                        style={{ backgroundColor: departmentColor }}
+                    >
+                        {member.name?.[0] || 'U'}
                     </div>
-                )}
+
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                            <span className="text-sm font-bold text-slate-900 truncate">{member.name || '이름 없음'}</span>
+                            {member.role && (
+                                <span className="text-[10px] px-1.5 h-5 flex items-center bg-slate-50 text-slate-500 rounded-md shrink-0">
+                                    {member.role}
+                                </span>
+                            )}
+                        </div>
+                        <div className="text-xs text-slate-400 truncate">{member.email}</div>
+                    </div>
+
+                    {/* Department Badge */}
+                    {member.department && (
+                        <div
+                            className="text-[10px] px-2 py-1 rounded-lg text-white font-medium shrink-0 shadow-sm"
+                            style={{ backgroundColor: departmentColor }}
+                        >
+                            {getDepartmentName(member.department)}
+                        </div>
+                    )}
+                </div>
             </div>
         )
     }
@@ -78,27 +95,38 @@ export default function MemberCard({ member, isDragging = false, showDepartment 
             style={style}
             {...attributes}
             {...listeners}
-            className={`bg-white border rounded-lg p-3 cursor-move hover:shadow-md transition-shadow ${isDragging ? 'shadow-lg rotate-2' : ''
-                }`}
+            className={`
+                relative group bg-white border border-slate-100 rounded-xl shadow-sm
+                hover:shadow-md hover:border-lime-300 transition-all cursor-grab active:cursor-grabbing p-4
+                ${isDragging || isSortableDragging ? 'shadow-lg rotate-2 scale-105 opacity-80' : ''}
+            `}
         >
-            <div className="flex items-start gap-3">
+            <div className="flex items-center gap-3">
+                {/* Color Indicator Dot */}
                 <div
-                    className="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold"
-                    style={avatarStyle}
+                    className="w-1.5 h-8 rounded-full"
+                    style={{ backgroundColor: member.department ? departmentColor : '#e2e8f0' }}
+                />
+
+                {/* Avatar */}
+                <div
+                    className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold border border-white/50 shadow-sm"
+                    style={{ backgroundColor: departmentColor }}
                 >
                     {member.name?.[0] || <User className="w-5 h-5" />}
                 </div>
+
+                {/* Info */}
                 <div className="flex-1 min-w-0">
-                    <div className="font-medium text-sm truncate">{member.name || '이름 없음'}</div>
-                    <div className="text-xs text-gray-500 flex items-center gap-1 truncate">
-                        <Mail className="w-3 h-3" />
-                        {member.email}
+                    <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-bold text-slate-900 truncate">{member.name || '이름 없음'}</span>
+                        {member.role && (
+                            <span className="text-[10px] px-1.5 h-5 flex items-center bg-slate-50 text-slate-500 rounded-md">
+                                {member.role}
+                            </span>
+                        )}
                     </div>
-                    {member.role && (
-                        <div className="mt-1 text-xs text-gray-600 bg-gray-100 px-2 py-0.5 rounded inline-block">
-                            {member.role}
-                        </div>
-                    )}
+                    <div className="text-xs text-slate-400 truncate">{member.email}</div>
                 </div>
             </div>
         </div>

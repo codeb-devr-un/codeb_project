@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { getDatabase, ref, onValue, off, set, push, update } from 'firebase/database'
-import { app } from '@/lib/firebase'
 import { useAuth } from '@/lib/auth-context'
+import { getProject, updateProject, deleteProject as deleteProjectAction } from '@/actions/project'
+import { toast } from 'react-hot-toast'
 
 export interface ProjectDetail {
   id: string
@@ -53,94 +53,88 @@ export function useProject(projectId: string | undefined) {
   const [activities, setActivities] = useState<Activity[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
+  const fetchProject = async () => {
     if (!projectId || !userProfile) return
 
-    const db = getDatabase(app)
-    const projectRef = ref(db, `projects/${projectId}`)
-    
-    onValue(projectRef, (snapshot) => {
-      const data = snapshot.val()
+    try {
+      const data = await getProject(projectId)
       if (data) {
         setProject({
-          id: projectId,
-          ...data,
-          startDate: data.startDate,
-          endDate: data.endDate,
-          createdAt: data.createdAt,
-          updatedAt: data.updatedAt || data.createdAt
+          id: data.id,
+          name: data.name,
+          description: data.description,
+          status: data.status as any,
+          progress: data.progress,
+          startDate: new Date(data.startDate).toISOString(),
+          endDate: new Date(data.endDate).toISOString(),
+          budget: data.budget,
+          team: data.team,
+          clientId: data.clientId,
+          clientName: data.clientName,
+          createdAt: new Date(data.createdAt).toISOString(),
+          updatedAt: new Date(data.updatedAt).toISOString()
         })
+
+        // Map activities
+        // Assuming getProject returns activities in a compatible format or we map them
+        // Prisma activities might need mapping
+        const mappedActivities = (data.activities || []).map((a: any) => ({
+          id: a.id,
+          type: a.type,
+          message: a.message,
+          user: a.userId, // Or fetch user name? Prisma include user?
+          timestamp: new Date(a.timestamp).toISOString(),
+          icon: '📝' // Default icon
+        }))
+        setActivities(mappedActivities)
       } else {
         router.push('/projects')
       }
+    } catch (error) {
+      console.error('Error fetching project:', error)
+      toast.error('프로젝트 정보를 불러오는데 실패했습니다.')
+    } finally {
       setLoading(false)
-    })
-
-    // Load project activities
-    const activitiesRef = ref(db, `projectActivities/${projectId}`)
-    onValue(activitiesRef, (snapshot) => {
-      const data = snapshot.val() || {}
-      const activitiesArray = Object.entries(data)
-        .map(([id, activity]: [string, any]) => ({
-          id,
-          ...activity
-        }))
-        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-        .slice(0, 20)
-      
-      setActivities(activitiesArray)
-    })
-
-    return () => {
-      off(projectRef)
-      off(activitiesRef)
     }
-  }, [projectId, userProfile, router])
+  }
+
+  useEffect(() => {
+    fetchProject()
+  }, [projectId, userProfile])
 
   const updateProjectStatus = async (newStatus: ProjectDetail['status']) => {
     if (!project || !userProfile) return
 
     try {
-      const db = getDatabase(app)
-      await set(ref(db, `projects/${project.id}/status`), newStatus)
-      await set(ref(db, `projects/${project.id}/updatedAt`), new Date().toISOString())
-
-      // Log activity
-      const activityRef = ref(db, `projectActivities/${project.id}`)
-      const newActivityRef = push(activityRef)
-      await set(newActivityRef, {
-        type: 'status',
-        message: `프로젝트 상태를 "${statusLabels[newStatus]}"로 변경`,
-        user: userProfile.displayName,
-        timestamp: new Date().toISOString(),
-        icon: '🔄'
-      })
+      const result = await updateProject(project.id, { status: newStatus as any })
+      if (result.success) {
+        toast.success('프로젝트 상태가 변경되었습니다.')
+        fetchProject()
+      } else {
+        throw new Error('Update failed')
+      }
     } catch (error) {
       console.error('Error updating project status:', error)
+      toast.error('상태 변경 실패')
     }
   }
 
   const deleteProject = async () => {
     if (!project) return
 
+    if (!confirm('정말로 이 프로젝트를 삭제하시겠습니까?')) return
+
     try {
-      const db = getDatabase(app)
-      
-      // Delete all project-related data
-      const updates: Record<string, null> = {
-        [`projects/${project.id}`]: null,
-        [`projectActivities/${project.id}`]: null,
-        [`files/${project.id}`]: null,
-        [`invitations/${project.id}`]: null
+      const result = await deleteProjectAction(project.id)
+      if (result.success) {
+        toast.success('프로젝트가 삭제되었습니다.')
+        router.push('/projects')
+      } else {
+        throw new Error('Delete failed')
       }
-      
-      await update(ref(db), updates)
-      
-      // Navigate to projects list after deletion
-      router.push('/projects')
     } catch (error) {
       console.error('Error deleting project:', error)
-      throw error
+      toast.error('삭제 실패')
     }
   }
 

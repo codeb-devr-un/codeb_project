@@ -4,14 +4,16 @@ import React, { useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { KanbanBoardPro } from '@/components/kanban'
+import KanbanCardModal from '@/components/kanban/KanbanCardModal'
 import { KanbanTask, TaskPriority, TaskStatus } from '@/types/task'
+import { KanbanCard } from '@/types/project'
 
 // Mock 칸반보드 데이터 생성 함수
 const createMockTask = (
-  id: string, 
-  columnId: string, 
-  order: number, 
-  title: string, 
+  id: string,
+  columnId: string,
+  order: number,
+  title: string,
   description: string,
   priority: TaskPriority,
   extras: Partial<KanbanTask> = {}
@@ -192,8 +194,10 @@ interface KanbanColumn {
 
 export default function KanbanPage() {
   const params = useParams()
-  const projectId = params.id as string
+  const projectId = params?.id as string
   const [columns, setColumns] = useState<KanbanColumn[]>(mockKanbanColumns)
+  const [selectedTask, setSelectedTask] = useState<KanbanTask | null>(null)
+  const [isModalOpen, setIsModalOpen] = useState(false)
 
   const handleColumnsChange = (newColumns: KanbanColumn[]) => {
     setColumns(newColumns)
@@ -206,6 +210,22 @@ export default function KanbanPage() {
 
   const handleTaskEdit = (task: KanbanTask) => {
     console.log('Edit task:', task)
+    setSelectedTask(task)
+    setIsModalOpen(true)
+  }
+
+  const handleTaskUpdate = (updatedCard: KanbanCard) => {
+    // KanbanCard를 KanbanTask로 변환 (타입 호환성 처리)
+    const updatedTask = updatedCard as unknown as KanbanTask
+
+    setColumns(prevColumns => prevColumns.map(col => ({
+      ...col,
+      tasks: col.tasks.map(task =>
+        task.id === updatedTask.id ? { ...task, ...updatedTask } : task
+      )
+    })))
+    setIsModalOpen(false)
+    setSelectedTask(null)
   }
 
   const handleTaskDelete = (taskId: string, columnId: string) => {
@@ -280,6 +300,24 @@ export default function KanbanPage() {
           onTaskDelete={handleTaskDelete}
         />
       </div>
+
+      <KanbanCardModal
+        card={selectedTask as unknown as KanbanCard}
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false)
+          setSelectedTask(null)
+        }}
+        onUpdate={handleTaskUpdate}
+        onDelete={(taskId) => {
+          // 컬럼 ID를 찾아야 함
+          const columnId = columns.find(col => col.tasks.some(t => t.id === taskId))?.id
+          if (columnId) {
+            handleTaskDelete(taskId, columnId)
+          }
+          setIsModalOpen(false)
+        }}
+      />
     </div>
   )
 }

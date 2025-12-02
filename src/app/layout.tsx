@@ -2,7 +2,10 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import { AuthProvider } from '@/lib/auth-context'
 import './globals.css'
-import { SocketProvider } from '@/components/providers/socket-provider'
+// import { SocketProvider } from '@/components/providers/socket-provider'
+import { WorkspaceProvider } from '@/lib/workspace-context'
+import { NotificationProvider } from '@/lib/notification-context'
+import NotificationToast from '@/components/notification/NotificationToast'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -28,9 +31,13 @@ export default function RootLayout({
       </head>
       <body className={inter.className} suppressHydrationWarning>
         <AuthProvider>
-          <SocketProvider>
-            {children}
-          </SocketProvider>
+          <WorkspaceProvider>
+            {/* SocketProvider 임시 비활성화 - webpack 문제 디버깅 */}
+            <NotificationProvider>
+              {children}
+              <NotificationToast />
+            </NotificationProvider>
+          </WorkspaceProvider>
         </AuthProvider>
       </body>
     </html>

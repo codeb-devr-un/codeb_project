@@ -42,6 +42,8 @@ export interface Project {
   createdBy: string
   createdAt: Date
   updatedAt: Date
+  homeTabs?: string[] // 홈 탭 설정 (feed, task, gantt, calendar, file)
+  requireApproval?: boolean // 관리자 승인 필요 여부
 }
 
 export interface ProjectMember {

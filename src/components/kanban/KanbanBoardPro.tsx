@@ -24,8 +24,8 @@ import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { motion } from 'framer-motion'
 import { KanbanTask, TaskPriority, TaskStatus } from '@/types/task'
+import { getDepartmentColor } from '@/constants/departments'
 import { Input } from '@/components/ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
@@ -84,7 +84,10 @@ function SortableTaskItem({ task, onEdit, onDelete }: {
       className={`cursor-move transition-all ${isDragging ? 'opacity-50' : ''
         }`}
     >
-      <Card className="p-3 hover:shadow-md transition-shadow">
+      <Card
+        className="p-3 hover:shadow-md transition-shadow"
+        style={{ borderLeft: `4px solid ${getDepartmentColor(task.department)}` }}
+      >
         <div className="flex justify-between items-start mb-2">
           <h4 className="text-sm font-medium flex-1">{task.title}</h4>
           <div className="flex gap-1 ml-2">
@@ -131,7 +134,10 @@ function SortableTaskItem({ task, onEdit, onDelete }: {
 
           {task.assignee && (
             <div className="flex items-center">
-              <div className="w-6 h-6 bg-muted rounded-full flex items-center justify-center text-xs font-medium">
+              <div
+                className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium text-white"
+                style={{ backgroundColor: getDepartmentColor(task.department) }}
+              >
                 {typeof task.assignee === 'string'
                   ? task.assignee.charAt(0).toUpperCase()
                   : (task.assignee as any)?.name?.charAt(0).toUpperCase() || '?'}
@@ -585,38 +591,32 @@ export default function KanbanBoardPro({
           />
         </div>
 
-        <Select value={filterPriority} onValueChange={setFilterPriority}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="우선순위 선택" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">모든 우선순위</SelectItem>
-            <SelectItem value={TaskPriority.LOW}>
-              <div className="flex items-center">
-                <ChevronDown className="h-4 w-4 mr-2" />
-                낮음
-              </div>
-            </SelectItem>
-            <SelectItem value={TaskPriority.MEDIUM}>
-              <div className="flex items-center">
-                <AlertCircle className="h-4 w-4 mr-2" />
-                중간
-              </div>
-            </SelectItem>
-            <SelectItem value={TaskPriority.HIGH}>
-              <div className="flex items-center">
-                <AlertTriangle className="h-4 w-4 mr-2" />
-                높음
-              </div>
-            </SelectItem>
-            <SelectItem value={TaskPriority.URGENT}>
-              <div className="flex items-center">
-                <Flame className="h-4 w-4 mr-2" />
-                긴급
-              </div>
-            </SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex gap-1">
+          {[
+            { value: 'all', label: '전체', icon: null, activeStyle: 'bg-slate-100 text-slate-700 ring-2 ring-slate-400' },
+            { value: TaskPriority.LOW, label: '낮음', icon: ChevronDown, activeStyle: 'bg-green-100 text-green-700 ring-2 ring-green-400' },
+            { value: TaskPriority.MEDIUM, label: '중간', icon: AlertCircle, activeStyle: 'bg-amber-100 text-amber-700 ring-2 ring-amber-400' },
+            { value: TaskPriority.HIGH, label: '높음', icon: AlertTriangle, activeStyle: 'bg-orange-100 text-orange-700 ring-2 ring-orange-400' },
+            { value: TaskPriority.URGENT, label: '긴급', icon: Flame, activeStyle: 'bg-red-100 text-red-700 ring-2 ring-red-400' }
+          ].map(priority => {
+            const Icon = priority.icon
+            return (
+              <button
+                key={priority.value}
+                type="button"
+                onClick={() => setFilterPriority(priority.value)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium transition-all ${
+                  filterPriority === priority.value
+                    ? priority.activeStyle
+                    : 'bg-white/60 text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                {Icon && <Icon className="h-3.5 w-3.5" />}
+                {priority.label}
+              </button>
+            )
+          })}
+        </div>
       </div>
 
       {/* 칸반 보드 */}

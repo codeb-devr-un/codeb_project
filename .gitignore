@@ -39,3 +39,6 @@ next-env.d.ts
 !/public/uploads/.gitkeep
 
 /src/generated/prisma
+
+*storybook.log
+storybook-static

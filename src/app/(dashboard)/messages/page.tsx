@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect } from 'react'
 import { useAuth } from '@/lib/auth-context'
-import { getDatabase, ref, onValue, off, push, update } from 'firebase/database'
-import { app } from '@/lib/firebase'
+// import { getDatabase, ref, onValue, off, push, update } from 'firebase/database'
+// import { app } from '@/lib/firebase'
 import { motion } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
@@ -23,6 +23,10 @@ import {
   Inbox, FileText, Hash, Briefcase, Bell
 } from 'lucide-react'
 
+// ===========================================
+// Glass Morphism Messages Page
+// ===========================================
+
 interface Message {
   id: string
   subject: string
@@ -36,7 +40,7 @@ interface Message {
   projectId?: string
   projectName?: string
   type: 'general' | 'project' | 'announcement'
-  priority: 'low' | 'normal' | 'high'
+  priority: 'low' | 'normal' | 'high' | 'urgent'
   status: 'unread' | 'read' | 'replied' | 'forwarded'
   isStarred: boolean
   isArchived: boolean
@@ -52,10 +56,11 @@ const CHANNEL_TYPES = {
   announcement: { label: '공지사항', icon: Bell },
 }
 
-const priorityConfig = {
-  low: { label: '낮음', variant: 'outline' as const },
-  normal: { label: '보통', variant: 'secondary' as const },
-  high: { label: '높음', variant: 'destructive' as const }
+const priorityConfig: Record<string, { label: string, variant: 'outline' | 'secondary' | 'destructive' }> = {
+  low: { label: '낮음', variant: 'outline' },
+  normal: { label: '보통', variant: 'secondary' },
+  high: { label: '높음', variant: 'destructive' },
+  urgent: { label: '긴급', variant: 'destructive' }
 }
 
 export default function MessagesPage() {
@@ -89,33 +94,9 @@ export default function MessagesPage() {
   // 메시지 데이터 로드
   useEffect(() => {
     if (!user || !userProfile) return
-
-    const db = getDatabase(app)
-    const messagesRef = ref(db, 'messages')
-
-    const unsubscribe = onValue(messagesRef, (snapshot) => {
-      const data = snapshot.val()
-      if (data) {
-        const messagesList = Object.entries(data).map(([id, message]: [string, any]) => ({
-          id,
-          ...message
-        }))
-
-        // 고객은 자신이 받거나 보낸 메시지만 볼 수 있음
-        const filteredMessages = messagesList.filter(msg =>
-          msg.toId === user.uid || msg.fromId === user.uid
-        )
-
-        setMessages(filteredMessages.sort((a, b) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        ))
-      } else {
-        setMessages([])
-      }
-      setLoading(false)
-    })
-
-    return () => unsubscribe()
+    // Firebase logic removed
+    setMessages([])
+    setLoading(false)
   }, [user, userProfile])
 
   // 권한 체크
@@ -145,69 +126,22 @@ export default function MessagesPage() {
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault()
-
-    try {
-      const db = getDatabase(app)
-      const messageData = {
-        subject: formData.subject,
-        content: formData.content,
-        type: formData.type,
-        priority: formData.priority,
-        fromId: user!.uid,
-        fromName: userProfile?.displayName || user!.email || '알 수 없음',
-        fromEmail: user!.email || '',
-        toId: 'admin', // 실제로는 수신자 ID를 찾아야 함
-        toName: '관리자',
-        toEmail: formData.toEmail,
-        status: 'unread',
-        isStarred: false,
-        isArchived: false,
-        createdAt: new Date().toISOString()
-      }
-
-      if (replyTo) {
-        messageData.subject = `Re: ${replyTo.subject}`
-      }
-
-      await push(ref(db, 'messages'), messageData)
-      toast.success('메시지가 전송되었습니다.')
-
-      handleCloseCompose()
-    } catch (error) {
-      console.error('Error sending message:', error)
-      toast.error('메시지 전송 중 오류가 발생했습니다.')
-    }
+    toast.success('메시지 전송 기능은 현재 사용할 수 없습니다.')
+    handleCloseCompose()
   }
 
   const handleView = async (message: Message) => {
     setSelectedMessage(message)
-
-    // 읽음 처리
-    if (message.toId === user?.uid && message.status === 'unread') {
-      const db = getDatabase(app)
-      await update(ref(db, `messages/${message.id}`), {
-        status: 'read',
-        readAt: new Date().toISOString()
-      })
-    }
+    // Firebase logic removed
   }
 
   const handleStar = async (messageId: string) => {
-    const db = getDatabase(app)
-    const message = messages.find(m => m.id === messageId)
-    if (message) {
-      await update(ref(db, `messages/${messageId}`), {
-        isStarred: !message.isStarred
-      })
-    }
+    // Firebase logic removed
   }
 
   const handleArchive = async (messageId: string) => {
-    const db = getDatabase(app)
-    await update(ref(db, `messages/${messageId}`), {
-      isArchived: true
-    })
-    toast.success('메시지가 보관되었습니다.')
+    // Firebase logic removed
+    toast.success('메시지 보관 기능은 현재 사용할 수 없습니다.')
     setSelectedMessage(null)
   }
 
@@ -244,8 +178,8 @@ export default function MessagesPage() {
     return (
       <div className="flex items-center justify-center h-96">
         <div className="text-center">
-          <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
-          <p className="mt-4 text-muted-foreground">메시지를 불러오는 중...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-lime-400 mx-auto"></div>
+          <p className="mt-4 text-slate-500">메시지를 불러오는 중...</p>
         </div>
       </div>
     )
@@ -253,106 +187,121 @@ export default function MessagesPage() {
 
   return (
     <div className="w-full max-w-[1920px] mx-auto px-6 py-6 space-y-6">
-      {/* 헤더 */}
+      {/* 헤더 - Glass Style */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">메시지</h1>
-          <p className="text-muted-foreground mt-1">
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900 flex items-center gap-3">
+            <div className="p-2 bg-lime-100 rounded-xl">
+              <MessageSquare className="w-6 h-6 text-lime-600" />
+            </div>
+            메시지
+          </h1>
+          <p className="text-slate-500 mt-1">
             {unreadCount > 0 ? `${unreadCount}개의 읽지 않은 메시지가 있습니다` : '모든 메시지를 확인했습니다'}
           </p>
         </div>
 
-        <Button onClick={() => setShowCompose(true)}>
+        <Button variant="limePrimary" onClick={() => setShowCompose(true)}>
           <Send className="mr-2 h-4 w-4" />
           메시지 작성
         </Button>
       </div>
 
-      {/* 통계 카드 */}
+      {/* 통계 카드 - Glass Style */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
+        <Card variant="glass" className="hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">전체 메시지</p>
-                <p className="text-2xl font-bold">{messages.length}</p>
+                <p className="text-sm text-slate-500">전체 메시지</p>
+                <p className="text-2xl font-bold text-slate-900">{messages.length}</p>
               </div>
-              <Inbox className="h-8 w-8 text-muted-foreground" />
+              <div className="p-3 bg-lime-100 rounded-xl">
+                <Inbox className="h-6 w-6 text-lime-600" />
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card variant="glass" className="hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">읽지 않음</p>
-                <p className="text-2xl font-bold text-blue-600">{unreadCount}</p>
+                <p className="text-sm text-slate-500">읽지 않음</p>
+                <p className="text-2xl font-bold text-slate-900">{unreadCount}</p>
               </div>
-              <Mail className="h-8 w-8 text-blue-600" />
+              <div className="p-3 bg-violet-100 rounded-xl">
+                <Mail className="h-6 w-6 text-violet-600" />
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card variant="glass" className="hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">중요</p>
-                <p className="text-2xl font-bold text-yellow-600">
+                <p className="text-sm text-slate-500">중요</p>
+                <p className="text-2xl font-bold text-slate-900">
                   {messages.filter(m => m.isStarred).length}
                 </p>
               </div>
-              <Star className="h-8 w-8 text-yellow-600" />
+              <div className="p-3 bg-amber-100 rounded-xl">
+                <Star className="h-6 w-6 text-amber-600" />
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card variant="glass" className="hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">답장함</p>
-                <p className="text-2xl font-bold text-green-600">
+                <p className="text-sm text-slate-500">답장함</p>
+                <p className="text-2xl font-bold text-slate-900">
                   {messages.filter(m => m.status === 'replied').length}
                 </p>
               </div>
-              <Reply className="h-8 w-8 text-green-600" />
+              <div className="p-3 bg-emerald-100 rounded-xl">
+                <Reply className="h-6 w-6 text-emerald-600" />
+              </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* 검색 및 필터 */}
+      {/* 검색 및 필터 - Glass Style */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
           <Input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="메시지 검색..."
-            className="pl-10"
+            className="pl-10 rounded-xl"
           />
         </div>
 
         <Tabs value={filterType} onValueChange={setFilterType}>
-          <TabsList>
-            <TabsTrigger value="all">전체</TabsTrigger>
-            <TabsTrigger value="unread">읽지않음</TabsTrigger>
-            <TabsTrigger value="starred">중요</TabsTrigger>
-            <TabsTrigger value="project">프로젝트</TabsTrigger>
+          <TabsList className="bg-white/60 backdrop-blur-sm p-1 rounded-xl border border-white/40">
+            <TabsTrigger value="all" className="data-[state=active]:bg-black data-[state=active]:text-lime-400 rounded-lg">전체</TabsTrigger>
+            <TabsTrigger value="unread" className="data-[state=active]:bg-black data-[state=active]:text-lime-400 rounded-lg">읽지않음</TabsTrigger>
+            <TabsTrigger value="starred" className="data-[state=active]:bg-black data-[state=active]:text-lime-400 rounded-lg">중요</TabsTrigger>
+            <TabsTrigger value="project" className="data-[state=active]:bg-black data-[state=active]:text-lime-400 rounded-lg">프로젝트</TabsTrigger>
           </TabsList>
         </Tabs>
       </div>
 
-      {/* 메시지 목록 */}
+      {/* 메시지 목록 - Glass Style */}
       {filteredMessages.length === 0 ? (
-        <Card>
+        <Card variant="glass">
           <CardContent className="p-12 text-center">
-            <Inbox className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
-            <h3 className="text-lg font-medium mb-2">메시지가 없습니다</h3>
-            <p className="text-muted-foreground">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-slate-100 flex items-center justify-center">
+              <Inbox className="h-8 w-8 text-slate-400" />
+            </div>
+            <h3 className="text-lg font-semibold text-slate-900 mb-2">메시지가 없습니다</h3>
+            <p className="text-slate-500">
               {searchTerm || filterType !== 'all'
                 ? '다른 검색 조건을 시도해보세요.'
                 : '받은 메시지가 없습니다.'}
@@ -373,22 +322,22 @@ export default function MessagesPage() {
                 animate={{ opacity: 1, x: 0 }}
               >
                 <Card
-                  className={`hover:shadow-md transition-all cursor-pointer ${isUnread ? 'border-primary bg-primary/5' : ''
-                    }`}
+                  variant="glass"
+                  className={`hover:shadow-xl transition-all cursor-pointer ${isUnread ? 'border-lime-400/50 bg-lime-50/30' : ''}`}
                   onClick={() => handleView(message)}
                 >
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between">
                       <div className="flex items-start gap-3 flex-1">
-                        <Avatar>
-                          <AvatarFallback>
+                        <Avatar className="bg-lime-100">
+                          <AvatarFallback className="bg-lime-100 text-lime-700">
                             {isSent ? message.toName[0] : message.fromName[0]}
                           </AvatarFallback>
                         </Avatar>
 
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
-                            <h3 className={`font-medium truncate ${isUnread ? 'font-semibold' : ''}`}>
+                            <h3 className={`font-medium truncate text-slate-900 ${isUnread ? 'font-semibold' : ''}`}>
                               {message.subject}
                             </h3>
                             {message.priority !== 'normal' && (
@@ -396,7 +345,7 @@ export default function MessagesPage() {
                                 {priorityConfig[message.priority].label}
                               </Badge>
                             )}
-                            <Badge variant="outline" className="ml-auto">
+                            <Badge variant="outline" className="ml-auto border-white/40 bg-white/60">
                               {CHANNEL_TYPES[message.type as keyof typeof CHANNEL_TYPES]?.icon &&
                                 React.createElement(CHANNEL_TYPES[message.type as keyof typeof CHANNEL_TYPES].icon, { className: "h-3 w-3 mr-1" })
                               }
@@ -404,22 +353,22 @@ export default function MessagesPage() {
                             </Badge>
                           </div>
 
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+                          <div className="flex items-center gap-2 text-sm text-slate-600 mb-1">
                             <span className="font-medium">
                               {isSent ? `받는 사람: ${message.toName}` : message.fromName}
                             </span>
                             <span>•</span>
-                            <span>{message.fromEmail}</span>
+                            <span className="text-slate-500">{message.fromEmail}</span>
                           </div>
 
-                          <p className="text-sm text-muted-foreground line-clamp-1">
+                          <p className="text-sm text-slate-500 line-clamp-1">
                             {message.content}
                           </p>
 
                           {message.projectName && (
                             <div className="flex items-center gap-1 mt-2">
-                              <Building2 className="h-3 w-3" />
-                              <span className="text-xs text-muted-foreground">{message.projectName}</span>
+                              <Building2 className="h-3 w-3 text-slate-400" />
+                              <span className="text-xs text-slate-500">{message.projectName}</span>
                             </div>
                           )}
                         </div>
@@ -429,25 +378,26 @@ export default function MessagesPage() {
                         <Button
                           variant="ghost"
                           size="icon"
+                          className="hover:bg-amber-50"
                           onClick={(e) => {
                             e.stopPropagation()
                             handleStar(message.id)
                           }}
                         >
-                          <Star className={`h-4 w-4 ${message.isStarred ? 'fill-yellow-400 text-yellow-400' : ''}`} />
+                          <Star className={`h-4 w-4 ${message.isStarred ? 'fill-amber-400 text-amber-400' : 'text-slate-400'}`} />
                         </Button>
 
                         <div className="text-right">
-                          <p className="text-xs text-muted-foreground">
+                          <p className="text-xs text-slate-500">
                             {new Date(message.createdAt).toLocaleDateString('ko-KR')}
                           </p>
-                          <p className="text-xs text-muted-foreground">
+                          <p className="text-xs text-slate-400">
                             {new Date(message.createdAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
                           </p>
                         </div>
 
                         {isUnread && (
-                          <div className="w-2 h-2 bg-primary rounded-full" />
+                          <div className="w-2 h-2 bg-lime-400 rounded-full" />
                         )}
                       </div>
                     </div>
@@ -459,11 +409,11 @@ export default function MessagesPage() {
         </div>
       )}
 
-      {/* 메시지 작성 모달 */}
+      {/* 메시지 작성 모달 - Glass Style */}
       <Dialog open={showCompose} onOpenChange={setShowCompose}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl bg-white/90 backdrop-blur-2xl border-white/40 rounded-3xl">
           <DialogHeader>
-            <DialogTitle>
+            <DialogTitle className="text-slate-900">
               {replyTo ? `답장: ${replyTo.subject}` : '새 메시지'}
             </DialogTitle>
           </DialogHeader>
@@ -471,24 +421,26 @@ export default function MessagesPage() {
           <form onSubmit={handleSend}>
             <div className="space-y-4">
               <div>
-                <Label htmlFor="to">받는 사람</Label>
+                <Label htmlFor="to" className="text-slate-700">받는 사람</Label>
                 <Input
                   id="to"
                   type="email"
                   value={formData.toEmail}
                   onChange={(e) => setFormData({ ...formData, toEmail: e.target.value })}
                   placeholder="이메일 주소"
+                  className="rounded-xl"
                   required
                 />
               </div>
 
               {!replyTo && (
                 <div>
-                  <Label htmlFor="subject">제목</Label>
+                  <Label htmlFor="subject" className="text-slate-700">제목</Label>
                   <Input
                     id="subject"
                     value={formData.subject}
                     onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+                    className="rounded-xl"
                     required
                   />
                 </div>
@@ -496,12 +448,12 @@ export default function MessagesPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="type">유형</Label>
+                  <Label htmlFor="type" className="text-slate-700">유형</Label>
                   <select
                     id="type"
                     value={formData.type}
                     onChange={(e) => setFormData({ ...formData, type: e.target.value as any })}
-                    className="w-full px-3 py-2 border rounded-md"
+                    className="w-full px-3 py-2 bg-white/60 border border-white/40 rounded-xl focus:outline-none focus:ring-2 focus:ring-lime-400 text-slate-900"
                   >
                     <option value="general">일반</option>
                     <option value="project">프로젝트</option>
@@ -510,12 +462,12 @@ export default function MessagesPage() {
                 </div>
 
                 <div>
-                  <Label htmlFor="priority">우선순위</Label>
+                  <Label htmlFor="priority" className="text-slate-700">우선순위</Label>
                   <select
                     id="priority"
                     value={formData.priority}
                     onChange={(e) => setFormData({ ...formData, priority: e.target.value as any })}
-                    className="w-full px-3 py-2 border rounded-md"
+                    className="w-full px-3 py-2 bg-white/60 border border-white/40 rounded-xl focus:outline-none focus:ring-2 focus:ring-lime-400 text-slate-900"
                   >
                     <option value="low">낮음</option>
                     <option value="normal">보통</option>
@@ -525,22 +477,23 @@ export default function MessagesPage() {
               </div>
 
               <div>
-                <Label htmlFor="content">내용</Label>
+                <Label htmlFor="content" className="text-slate-700">내용</Label>
                 <Textarea
                   id="content"
                   value={formData.content}
                   onChange={(e) => setFormData({ ...formData, content: e.target.value })}
                   rows={8}
+                  className="rounded-xl"
                   required
                 />
               </div>
             </div>
 
             <DialogFooter className="mt-6">
-              <Button type="button" variant="outline" onClick={handleCloseCompose}>
+              <Button type="button" variant="glass" onClick={handleCloseCompose}>
                 취소
               </Button>
-              <Button type="submit">
+              <Button type="submit" variant="limePrimary">
                 <Send className="h-4 w-4 mr-2" />
                 전송
               </Button>
@@ -549,66 +502,75 @@ export default function MessagesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* 메시지 상세 모달 */}
+      {/* 메시지 상세 모달 - Glass Morphism */}
       {selectedMessage && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setSelectedMessage(null)}>
-          <Card className="w-full max-w-3xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <CardHeader>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setSelectedMessage(null)}>
+          <Card variant="glass" className="w-full max-w-3xl max-h-[90vh] overflow-y-auto bg-white/90 backdrop-blur-2xl border-white/40 rounded-3xl shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <CardHeader className="border-b border-white/40">
               <div className="flex items-start justify-between">
                 <div>
-                  <CardTitle className="text-xl">{selectedMessage.subject}</CardTitle>
+                  <CardTitle className="text-xl text-slate-900">{selectedMessage.subject}</CardTitle>
                   <div className="flex items-center gap-3 mt-2">
-                    <Badge variant={priorityConfig[selectedMessage.priority].variant}>
+                    <span className={`px-2.5 py-1 text-xs font-medium rounded-lg ${
+                      selectedMessage.priority === 'urgent' ? 'bg-rose-100 text-rose-700' :
+                      selectedMessage.priority === 'high' ? 'bg-amber-100 text-amber-700' :
+                      selectedMessage.priority === 'normal' ? 'bg-lime-100 text-lime-700' :
+                      'bg-slate-100 text-slate-600'
+                    }`}>
                       {priorityConfig[selectedMessage.priority].label}
-                    </Badge>
-                    <Badge variant="outline">
+                    </span>
+                    <span className="px-2.5 py-1 text-xs bg-white/60 border border-white/40 text-slate-600 rounded-lg">
                       {CHANNEL_TYPES[selectedMessage.type as keyof typeof CHANNEL_TYPES]?.label || selectedMessage.type}
-                    </Badge>
+                    </span>
                     {selectedMessage.projectName && (
-                      <Badge variant="secondary">{selectedMessage.projectName}</Badge>
+                      <span className="px-2.5 py-1 text-xs bg-violet-100 text-violet-700 rounded-lg">
+                        {selectedMessage.projectName}
+                      </span>
                     )}
                   </div>
                 </div>
-                <Button variant="ghost" size="sm" onClick={() => setSelectedMessage(null)}>
+                <Button variant="glass" size="sm" onClick={() => setSelectedMessage(null)} className="rounded-xl">
                   ✕
                 </Button>
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-6">
               <div className="space-y-4">
                 <div className="flex items-start gap-3">
-                  <Avatar>
-                    <AvatarFallback>{selectedMessage.fromName[0]}</AvatarFallback>
+                  <Avatar className="bg-lime-100 border-2 border-white/60">
+                    <AvatarFallback className="bg-lime-100 text-lime-700 font-medium">{selectedMessage.fromName[0]}</AvatarFallback>
                   </Avatar>
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <h4 className="font-medium">{selectedMessage.fromName}</h4>
-                      <span className="text-sm text-muted-foreground">&lt;{selectedMessage.fromEmail}&gt;</span>
+                      <h4 className="font-medium text-slate-900">{selectedMessage.fromName}</h4>
+                      <span className="text-sm text-slate-500">&lt;{selectedMessage.fromEmail}&gt;</span>
                     </div>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm text-slate-500">
                       받는 사람: {selectedMessage.toName} &lt;{selectedMessage.toEmail}&gt;
                     </p>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm text-slate-400">
                       {new Date(selectedMessage.createdAt).toLocaleString('ko-KR')}
                     </p>
                   </div>
                 </div>
 
-                <div className="border-t pt-4">
-                  <div className="whitespace-pre-wrap">{selectedMessage.content}</div>
+                <div className="border-t border-white/40 pt-4">
+                  <div className="whitespace-pre-wrap text-slate-700 leading-relaxed">{selectedMessage.content}</div>
                 </div>
 
-                <div className="flex justify-end gap-2 pt-4 border-t">
+                <div className="flex justify-end gap-2 pt-4 border-t border-white/40">
                   <Button
-                    variant="outline"
+                    variant="glass"
                     onClick={() => handleReply(selectedMessage)}
+                    className="rounded-xl"
                   >
                     <Reply className="h-4 w-4 mr-2" />
                     답장
                   </Button>
                   <Button
-                    variant="outline"
+                    variant="limePrimary"
                     onClick={() => handleArchive(selectedMessage.id)}
+                    className="rounded-xl"
                   >
                     <Archive className="h-4 w-4 mr-2" />
                     보관

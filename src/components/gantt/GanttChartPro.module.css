@@ -19,6 +19,7 @@
   width: 100%;
   min-width: 100%;
   padding: 1rem;
+  background: white;
 }
 
 /* gantt-task-react 라이브러리 스타일 오버라이드 */
@@ -30,6 +31,11 @@
 .ganttWrapper :global(.gantt-container-wrapper) {
   overflow-x: auto !important;
   overflow-y: visible !important;
+}
+
+/* 기본 라이브러리 헤더 숨기기 (커스텀 사용) */
+.ganttWrapper :global(._WuQ0f) {
+  display: flex !important;
 }
 
 /* 스크롤바 스타일 */
@@ -55,3 +61,131 @@
 .ganttWrapper::-webkit-scrollbar-corner {
   background: #f3f4f6;
 }
+
+/* 커스텀 TaskList 헤더 스타일 */
+.taskListHeader {
+  display: flex;
+  align-items: center;
+  background: linear-gradient(to bottom, #f9fafb, #f3f4f6);
+  border-bottom: 2px solid #e5e7eb;
+  font-weight: 600;
+  color: #374151;
+}
+
+.taskListHeaderCell {
+  padding: 0 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-right: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  height: 100%;
+}
+
+.taskListHeaderCell:last-child {
+  border-right: none;
+}
+
+/* 커스텀 TaskList 테이블 스타일 */
+.taskListWrapper {
+  border-right: 1px solid #e5e7eb;
+}
+
+.taskListRow {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid #f3f4f6;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.taskListRow:hover {
+  background-color: #f9fafb;
+}
+
+.taskListRow:active {
+  background-color: #f3f4f6;
+}
+
+.taskListCell {
+  padding: 0 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-right: 1px solid #f3f4f6;
+  display: flex;
+  align-items: center;
+  height: 100%;
+  font-size: 13px;
+  color: #4b5563;
+}
+
+.taskListCell:last-child {
+  border-right: none;
+}
+
+.taskNameWrapper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  overflow: hidden;
+}
+
+/* 부서 컬러 도트 */
+.departmentDot {
+  width: 8px;
+  height: 8px;
+  min-width: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.expanderButton {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 4px;
+  font-size: 10px;
+  color: #6b7280;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.expanderButton:hover {
+  background-color: #e5e7eb;
+  color: #374151;
+}
+
+.taskName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.projectName {
+  font-weight: 600;
+  color: #111827;
+}
+
+.milestoneName {
+  font-weight: 500;
+  color: #dc2626;
+}
+
+/* 반응형 조정 */
+@media (max-width: 768px) {
+  .taskListHeaderCell,
+  .taskListCell {
+    padding: 0 8px;
+    font-size: 12px;
+  }
+
+  .ganttWrapper {
+    padding: 0.5rem;
+  }
+}
+

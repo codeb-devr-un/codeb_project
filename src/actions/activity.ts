@@ -1,7 +1,12 @@
 'use server'
 
+// =============================================================================
+// Activity Server Actions - CVE-CB-005 Fixed: Secure Logging
+// =============================================================================
+
 import { prisma } from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
+import { secureLogger } from '@/lib/security'
 
 export async function getActivities(projectId: string) {
     try {
@@ -12,7 +17,7 @@ export async function getActivities(projectId: string) {
         })
         return activities
     } catch (error) {
-        console.error('Error fetching activities:', error)
+        secureLogger.error('Error fetching activities', error as Error, { operation: 'activity.list' })
         return []
     }
 }
@@ -39,7 +44,7 @@ export async function addActivity(projectId: string, data: {
         revalidatePath(`/projects/${projectId}`)
         return { success: true, activity }
     } catch (error) {
-        console.error('Error adding activity:', error)
+        secureLogger.error('Error adding activity', error as Error, { operation: 'activity.add' })
         return { success: false, error }
     }
 }

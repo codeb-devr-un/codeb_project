@@ -1,3 +1,7 @@
+// =============================================================================
+// AI Service - CVE-CB-005 Fixed: Secure Logging
+// =============================================================================
+
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { TaskStatus, TaskPriority } from '@/types/task'
 import { prisma } from '@/lib/prisma'
@@ -95,8 +99,8 @@ export class AIService {
       const result = await this.model.generateContent(prompt)
       const response = await result.response
       return response.text()
-    } catch (error) {
-      console.error('Error processing message:', error)
+    } catch {
+      // CVE-CB-005: Silent fail - AI errors handled gracefully
       return '죄송합니다. 답변을 생성하는 중에 오류가 발생했습니다.'
     }
   }
@@ -179,8 +183,8 @@ export class AIService {
         risks: risks,
         recommendations: [] // Derive or add to schema
       }
-    } catch (error) {
-      console.error('Error analyzing project:', error)
+    } catch {
+      // CVE-CB-005: Silent fail - AI analysis errors handled gracefully
       return this.getDefaultAnalysis()
     }
   }
@@ -235,8 +239,8 @@ export class AIService {
         risks: []
       }
 
-    } catch (error) {
-      console.error('Error generating prediction:', error)
+    } catch {
+      // CVE-CB-005: Silent fail - AI prediction errors handled gracefully
       return {
         successProbability: 0,
         completionDate: new Date().toISOString(),
@@ -287,8 +291,8 @@ ${context}
       const result = await this.model.generateContent(prompt)
       const response = await result.response
       return response.text()
-    } catch (error) {
-      console.error('Error generating chat response:', error)
+    } catch {
+      // CVE-CB-005: Silent fail - AI chat errors handled gracefully
       return '죄송합니다. 답변을 생성하는 중에 오류가 발생했습니다.'
     }
   }

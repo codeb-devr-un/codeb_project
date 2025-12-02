@@ -1,8 +1,14 @@
 'use server'
 
+// =============================================================================
+// Task Server Actions - CVE-CB-005 Fixed: Secure Logging
+// =============================================================================
+
 import { prisma } from '@/lib/prisma'
 import { Task, TaskStatus, TaskPriority } from '@prisma/client'
 import { revalidatePath } from 'next/cache'
+import { invalidateCache } from '@/lib/redis'
+import { secureLogger } from '@/lib/security'
 
 export async function getTasks(projectId: string) {
     try {
@@ -22,7 +28,8 @@ export async function getTasks(projectId: string) {
                 order: 'asc'
             }
         })
-
+        // CVE-CB-005: Secure logging - debug info only in development
+        secureLogger.debug(`Found ${tasks.length} tasks`, { operation: 'task.list', projectId })
         return tasks.map(t => ({
             ...t,
             // Map to frontend expected format if needed
@@ -30,61 +37,97 @@ export async function getTasks(projectId: string) {
             assigneeName: t.assignee?.name,
             assigneeId: t.assigneeId,
             // Ensure dates are Date objects (Prisma returns Date objects)
+            startDate: t.startDate?.toISOString() || null,
+            dueDate: t.dueDate?.toISOString() || null,
+            createdAt: t.createdAt.toISOString(),
+            updatedAt: t.updatedAt.toISOString(),
         }))
     } catch (error) {
-        console.error('Error fetching tasks:', error)
+        secureLogger.error('Failed to fetch tasks', error as Error, { operation: 'task.list' })
         return []
     }
 }
 
-export async function getAllTasks(userId: string) {
+export async function getAllTasks(
+    userId: string,
+    workspaceId?: string,
+    options?: { cursor?: string; limit?: number }
+) {
     try {
-        // Fetch tasks where user is assignee or creator, or if admin (logic to be added)
-        // For now, let's fetch all tasks for projects the user has access to.
-        // Or just all tasks if we assume user can see everything for now (simplification).
-        // Better: fetch tasks where assigneeId = userId OR project.members includes userId.
+        const limit = options?.limit ?? 100
+        const cursor = options?.cursor
+
+        // 사용자가 속한 프로젝트 ID 목록 가져오기
+        const userProjects = await prisma.projectMember.findMany({
+            where: { userId },
+            select: { projectId: true }
+        })
+        const userProjectIds = userProjects.map(p => p.projectId)
+
+        const whereClause: any = {
+            OR: [
+                // 1. 내가 만든 개인 작업 (projectId가 null)
+                { createdBy: userId, projectId: null },
+                // 2. 나에게 할당된 작업
+                { assigneeId: userId },
+                // 3. 내가 만든 작업
+                { createdBy: userId },
+                // 4. 내가 멤버인 프로젝트의 모든 작업 (프로젝트 협업)
+                { projectId: { in: userProjectIds } }
+            ]
+        }
+
+        // 워크스페이스 필터링 추가
+        if (workspaceId) {
+            whereClause.AND = [
+                {
+                    OR: [
+                        { project: { workspaceId: workspaceId } },
+                        { projectId: null, createdBy: userId } // 개인 작업은 생성자만
+                    ]
+                }
+            ]
+        }
 
         const tasks = await prisma.task.findMany({
-            where: {
-                OR: [
-                    { assigneeId: userId },
-                    { createdBy: userId },
-                    {
-                        project: {
-                            members: {
-                                some: {
-                                    userId: userId
-                                }
-                            }
-                        }
-                    }
-                ]
-            },
+            where: whereClause,
             include: {
                 project: {
                     select: {
-                        name: true
+                        name: true,
+                        workspaceId: true
                     }
                 },
                 assignee: true
             },
             orderBy: {
                 dueDate: 'asc'
-            }
+            },
+            take: limit,
+            ...(cursor ? { skip: 1, cursor: { id: cursor } } : {})
         })
 
-        return tasks.map(t => ({
+        // 중복 제거 (여러 조건에 해당할 수 있음)
+        const uniqueTasks = Array.from(new Map(tasks.map(t => [t.id, t])).values())
+
+        return uniqueTasks.map(t => ({
             ...t,
-            projectName: t.project.name,
-            assigneeName: t.assignee?.name
+            projectName: t.project?.name || 'Personal',
+            assigneeName: t.assignee?.name,
+            startDate: t.startDate?.toISOString() || null,
+            dueDate: t.dueDate?.toISOString() || null,
+            createdAt: t.createdAt.toISOString(),
+            updatedAt: t.updatedAt.toISOString(),
         }))
     } catch (error) {
-        console.error('Error fetching all tasks:', error)
+        secureLogger.error('Failed to fetch all tasks', error as Error, { operation: 'task.listAll' })
         return []
     }
 }
 
-export async function createTask(projectId: string, data: {
+import { emitToProject } from '@/lib/socket-emitter'
+
+export async function createTask(projectId: string | undefined | null, data: {
     title: string
     description?: string
     status?: TaskStatus
@@ -95,11 +138,13 @@ export async function createTask(projectId: string, data: {
     createdBy: string
     columnId?: string
     order?: number
+    labels?: string[]
+    color?: string
 }) {
     try {
         const task = await prisma.task.create({
             data: {
-                projectId,
+                ...(projectId ? { projectId } : {}),
                 title: data.title,
                 description: data.description,
                 status: data.status || TaskStatus.todo,
@@ -109,32 +154,81 @@ export async function createTask(projectId: string, data: {
                 assigneeId: data.assigneeId,
                 createdBy: data.createdBy,
                 columnId: data.columnId,
-                order: data.order || 0
+                order: data.order || 0,
+                labels: data.labels || [],
+                color: data.color
             }
         })
 
-        revalidatePath(`/projects/${projectId}`)
-        await updateProjectProgress(projectId)
-        return { success: true, task }
+        if (projectId) {
+            revalidatePath(`/projects/${projectId}`)
+            await updateProjectProgress(projectId)
+
+            // Emit Socket Event
+            emitToProject(projectId, 'task-created', task)
+        }
+
+        // Invalidate Dashboard Cache
+        await invalidateCache('dashboard:stats:*')
+
+        return {
+            success: true,
+            task: {
+                ...task,
+                startDate: task.startDate?.toISOString() || null,
+                dueDate: task.dueDate?.toISOString() || null,
+                createdAt: task.createdAt.toISOString(),
+                updatedAt: task.updatedAt.toISOString(),
+            }
+        }
     } catch (error) {
-        console.error('Error creating task:', error)
-        return { success: false, error }
+        secureLogger.error('Failed to create task', error as Error, { operation: 'task.create' })
+        return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
     }
 }
 
 export async function updateTask(taskId: string, data: Partial<Task>) {
     try {
+        secureLogger.debug('Updating task', { operation: 'task.update', taskId })
+
+        // Date 객체를 올바르게 처리
+        const updateData: any = { ...data }
+        if (data.startDate) {
+            updateData.startDate = new Date(data.startDate)
+        }
+        if (data.dueDate) {
+            updateData.dueDate = new Date(data.dueDate)
+        }
+
         const task = await prisma.task.update({
             where: { id: taskId },
-            data
+            data: updateData
         })
 
         revalidatePath(`/projects/${task.projectId}`)
-        await updateProjectProgress(task.projectId)
-        return { success: true, task }
+        if (task.projectId) {
+            await updateProjectProgress(task.projectId)
+
+            // Emit Socket Event
+            emitToProject(task.projectId, 'task-updated', task)
+        }
+
+        // Invalidate Dashboard Cache
+        await invalidateCache('dashboard:stats:*')
+
+        return {
+            success: true,
+            task: {
+                ...task,
+                startDate: task.startDate?.toISOString() || null,
+                dueDate: task.dueDate?.toISOString() || null,
+                createdAt: task.createdAt.toISOString(),
+                updatedAt: task.updatedAt.toISOString(),
+            }
+        }
     } catch (error) {
-        console.error('Error updating task:', error)
-        return { success: false, error }
+        secureLogger.error('Failed to update task', error as Error, { operation: 'task.update' })
+        return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
     }
 }
 
@@ -145,11 +239,20 @@ export async function deleteTask(taskId: string) {
         })
 
         revalidatePath(`/projects/${task.projectId}`)
-        await updateProjectProgress(task.projectId)
+        if (task.projectId) {
+            await updateProjectProgress(task.projectId)
+
+            // Emit Socket Event
+            emitToProject(task.projectId, 'task-deleted', { id: taskId })
+        }
+
+        // Invalidate Dashboard Cache
+        await invalidateCache('dashboard:stats:*')
+
         return { success: true }
     } catch (error) {
-        console.error('Error deleting task:', error)
-        return { success: false, error }
+        secureLogger.error('Failed to delete task', error as Error, { operation: 'task.delete' })
+        return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
     }
 }
 
@@ -176,7 +279,7 @@ export async function updateTasksOrder(projectId: string, tasks: { id: string; c
         const validTasks = tasks.filter(t => existingIds.has(t.id))
 
         if (validTasks.length === 0) {
-            console.warn('No valid tasks to update')
+            secureLogger.warn('No valid tasks to update', { operation: 'task.updateOrder' })
             return { success: true }
         }
 
@@ -195,9 +298,16 @@ export async function updateTasksOrder(projectId: string, tasks: { id: string; c
         )
 
         revalidatePath(`/projects/${projectId}`)
+
+        // Emit Socket Event
+        emitToProject(projectId, 'tasks-reordered', tasks)
+
+        // Invalidate Dashboard Cache
+        await invalidateCache('dashboard:stats:*')
+
         return { success: true }
     } catch (error) {
-        console.error('Error updating tasks order:', error)
+        secureLogger.error('Failed to update tasks order', error as Error, { operation: 'task.updateOrder' })
         return { success: false, error: 'Failed to update task order' }
     }
 }
@@ -224,6 +334,6 @@ async function updateProjectProgress(projectId: string) {
             data: { progress }
         })
     } catch (error) {
-        console.error('Error updating project progress:', error)
+        secureLogger.error('Error updating project progress', error as Error, { operation: 'project.updateProgress' })
     }
 }

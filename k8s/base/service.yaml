@@ -1,0 +1,47 @@
+# =============================================================================
+# CodeB CMS Services - Hyperscale Production
+# =============================================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: codeb-app
+  namespace: codeb
+  labels:
+    app.kubernetes.io/name: codeb
+    app.kubernetes.io/component: app
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "3000"
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: codeb
+    app.kubernetes.io/component: app
+
+---
+# =============================================================================
+# Headless Service for StatefulSet (if needed)
+# =============================================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: codeb-app-headless
+  namespace: codeb
+  labels:
+    app.kubernetes.io/name: codeb
+    app.kubernetes.io/component: app
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+    - name: http
+      port: 3000
+      targetPort: http
+  selector:
+    app.kubernetes.io/name: codeb
+    app.kubernetes.io/component: app

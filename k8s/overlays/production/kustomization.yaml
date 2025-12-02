@@ -1,0 +1,80 @@
+# =============================================================================
+# Kustomize Production Overlay - Hyperscale Configuration
+# Target: 100,000 concurrent users
+# =============================================================================
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: codeb-production
+
+namespace: codeb
+
+resources:
+  - ../../base
+  - redis-cluster.yaml
+  - pgbouncer.yaml
+  - monitoring.yaml
+
+commonLabels:
+  environment: production
+
+# Production image tag
+images:
+  - name: codeb/cms
+    newTag: v1.0.0-production
+
+# Production-specific patches
+patches:
+  # Scale up replicas
+  - target:
+      kind: Deployment
+      name: codeb-app
+    patch: |
+      - op: replace
+        path: /spec/replicas
+        value: 20
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/cpu
+        value: "1000m"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/memory
+        value: "1Gi"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/cpu
+        value: "4000m"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/memory
+        value: "4Gi"
+
+  # Scale workers
+  - target:
+      kind: Deployment
+      name: codeb-worker
+    patch: |
+      - op: replace
+        path: /spec/replicas
+        value: 10
+
+  # Increase HPA limits
+  - target:
+      kind: HorizontalPodAutoscaler
+      name: codeb-app-hpa
+    patch: |
+      - op: replace
+        path: /spec/minReplicas
+        value: 20
+      - op: replace
+        path: /spec/maxReplicas
+        value: 200
+
+# ConfigMap patches
+configMapGenerator:
+  - name: codeb-config
+    behavior: merge
+    literals:
+      - nextauth-url=https://codeb.app
+      - app-url=https://codeb.app
+      - log-level=warn
+      - feature-redis-cluster=true
+      - feature-read-replica=true

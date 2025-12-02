@@ -10,17 +10,56 @@ import ReactFlow, {
     useEdgesState,
     Controls,
     Background,
+    Position,
 } from 'reactflow'
 import 'reactflow/dist/style.css'
 import { Button } from '@/components/ui/button'
 import { Plus, Save, RefreshCw } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 
+import dagre from 'dagre'
+
 interface MindmapEditorProps {
     projectId: string
+    projectName: string
 }
 
-export default function MindmapEditor({ projectId }: MindmapEditorProps) {
+const getLayoutedElements = (nodes: Node[], edges: Edge[], direction = 'TB') => {
+    const dagreGraph = new dagre.graphlib.Graph()
+    dagreGraph.setDefaultEdgeLabel(() => ({}))
+
+    const isHorizontal = direction === 'LR'
+    dagreGraph.setGraph({ rankdir: direction })
+
+    nodes.forEach((node) => {
+        dagreGraph.setNode(node.id, { width: 200, height: 80 }) // Approximate node size
+    })
+
+    edges.forEach((edge) => {
+        dagreGraph.setEdge(edge.source, edge.target)
+    })
+
+    dagre.layout(dagreGraph)
+
+    const layoutedNodes = nodes.map((node) => {
+        const nodeWithPosition = dagreGraph.node(node.id)
+        node.targetPosition = isHorizontal ? Position.Left : Position.Top
+        node.sourcePosition = isHorizontal ? Position.Right : Position.Bottom
+
+        // We are shifting the dagre node position (anchor=center center) to the top left
+        // so it matches the React Flow node anchor point (top left).
+        node.position = {
+            x: nodeWithPosition.x - 200 / 2,
+            y: nodeWithPosition.y - 80 / 2,
+        }
+
+        return node
+    })
+
+    return { nodes: layoutedNodes, edges }
+}
+
+export default function MindmapEditor({ projectId, projectName }: MindmapEditorProps) {
     const [nodes, setNodes, onNodesChange] = useNodesState([])
     const [edges, setEdges, onEdgesChange] = useEdgesState([])
     const [tasks, setTasks] = useState<any[]>([])
@@ -29,7 +68,7 @@ export default function MindmapEditor({ projectId }: MindmapEditorProps) {
     // Load existing tasks as mindmap nodes
     useEffect(() => {
         loadTasks()
-    }, [projectId])
+    }, [projectId, projectName])
 
     const loadTasks = async () => {
         setLoading(true)
@@ -38,8 +77,28 @@ export default function MindmapEditor({ projectId }: MindmapEditorProps) {
             const data = await response.json()
             setTasks(data)
 
+            // Create Root Node (Project Name)
+            const rootNode: Node = {
+                id: 'root',
+                type: 'input', // Input type usually has source handle at bottom
+                data: { label: projectName },
+                position: { x: 0, y: 0 },
+                style: {
+                    background: '#2563eb',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '10px 20px',
+                    fontWeight: 'bold',
+                    fontSize: '16px',
+                    width: 'auto',
+                    minWidth: '150px',
+                    textAlign: 'center'
+                }
+            }
+
             // Convert tasks to mindmap nodes
-            const taskNodes: Node[] = data.map((task: any, index: number) => ({
+            const taskNodes: Node[] = data.map((task: any) => ({
                 id: task.id,
                 type: 'default',
                 data: {
@@ -50,13 +109,35 @@ export default function MindmapEditor({ projectId }: MindmapEditorProps) {
                         </div>
                     )
                 },
-                position: {
-                    x: (index % 4) * 250,
-                    y: Math.floor(index / 4) * 120
-                },
+                position: { x: 0, y: 0 }, // Position will be set by dagre
+                style: {
+                    background: 'white',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '8px',
+                    width: '200px'
+                }
             }))
 
-            setNodes(taskNodes)
+            // Create Edges connecting Root to Tasks
+            const taskEdges: Edge[] = data.map((task: any) => ({
+                id: `e-root-${task.id}`,
+                source: 'root',
+                target: task.id,
+                type: 'smoothstep',
+                animated: true,
+                style: { stroke: '#94a3b8' }
+            }))
+
+            const initialNodes = [rootNode, ...taskNodes]
+            const initialEdges = taskEdges
+
+            const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
+                initialNodes,
+                initialEdges
+            )
+
+            setNodes(layoutedNodes)
+            setEdges(layoutedEdges)
         } catch (error) {
             console.error('Failed to load tasks:', error)
             toast.error('작업 로드 실패')
@@ -70,8 +151,18 @@ export default function MindmapEditor({ projectId }: MindmapEditorProps) {
         [setEdges]
     )
 
+    const onLayout = useCallback((direction: string) => {
+        const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
+            nodes,
+            edges,
+            direction
+        )
+        setNodes([...layoutedNodes])
+        setEdges([...layoutedEdges])
+    }, [nodes, edges, setNodes, setEdges])
+
     const addNode = async () => {
-        const newTaskTitle = `새 작업 ${nodes.length + 1}`
+        const newTaskTitle = `새 작업 ${nodes.length}` // -1 for root, +1 for new = length
 
         try {
             // Create actual task in DB
@@ -109,6 +200,10 @@ export default function MindmapEditor({ projectId }: MindmapEditorProps) {
                 <Button onClick={loadTasks} size="sm" variant="outline" disabled={loading}>
                     <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
                     새로고침
+                </Button>
+                <Button onClick={() => onLayout('TB')} size="sm" variant="outline">
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    자동 정렬
                 </Button>
                 <div className="ml-auto text-sm text-gray-500 flex items-center gap-2">
                     <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs">

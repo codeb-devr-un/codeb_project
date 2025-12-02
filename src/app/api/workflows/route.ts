@@ -1,23 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server'
-import workflowEngine from '@/services/workflow-engine'
+import { NextResponse } from 'next/server'
 
-// GET /api/workflows - 워크플로우 목록 조회
 export async function GET() {
-  try {
-    const workflows = await workflowEngine.getWorkflows()
-    return NextResponse.json({ workflows })
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
-  }
+  return NextResponse.json({ error: 'Workflow engine unavailable' }, { status: 503 })
 }
 
-// POST /api/workflows - 워크플로우 생성
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json()
-    const workflow = await workflowEngine.saveWorkflow(body)
-    return NextResponse.json({ success: true, workflow })
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
-  }
+export async function POST() {
+  return NextResponse.json({ error: 'Workflow engine unavailable' }, { status: 503 })
 }

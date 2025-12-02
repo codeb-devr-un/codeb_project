@@ -1,5 +1,10 @@
+// =============================================================================
+// Transactions Summary API - CVE-CB-005 Fixed: Secure Logging
+// =============================================================================
+
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { secureLogger, createErrorResponse } from '@/lib/security'
 
 export async function GET(request: Request) {
     try {
@@ -25,7 +30,8 @@ export async function GET(request: Request) {
             transactions,
         })
     } catch (error) {
-        console.error('Failed to fetch transactions:', error)
-        return NextResponse.json({ error: 'Failed to fetch transactions' }, { status: 500 })
+        // CVE-CB-005: Secure logging
+        secureLogger.error('Failed to fetch transactions', error as Error, { operation: 'transactions.summary' })
+        return createErrorResponse('Failed to fetch transactions', 500, 'FETCH_FAILED')
     }
 }

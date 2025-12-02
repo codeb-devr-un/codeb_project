@@ -1,0 +1,35 @@
+;; =============================================================================
+;; PgBouncer User Authentication File
+;; Format: "username" "password/hash"
+;;
+;; IMPORTANT: Replace these with actual credentials in production
+;; Generate password hash: echo -n "md5"; echo -n "password${username}" | md5sum
+;; Or use scram-sha-256 from PostgreSQL
+;; =============================================================================
+
+;; Application user - main database access
+"codeb_app" "${PGBOUNCER_APP_PASSWORD}"
+
+;; Read-only user - for read replica connections
+"codeb_readonly" "${PGBOUNCER_READONLY_PASSWORD}"
+
+;; Admin user - for PgBouncer management
+"pgbouncer_admin" "${PGBOUNCER_ADMIN_PASSWORD}"
+
+;; Stats user - for monitoring only
+"pgbouncer_stats" "${PGBOUNCER_STATS_PASSWORD}"
+
+;; =============================================================================
+;; Production Setup Instructions:
+;;
+;; 1. Generate SCRAM-SHA-256 password in PostgreSQL:
+;;    SELECT 'SCRAM-SHA-256$' || iteration_count || ':' || salt || '$' || stored_key || ':' || server_key
+;;    FROM pg_authid WHERE rolname = 'your_user';
+;;
+;; 2. Or use MD5 (less secure):
+;;    "username" "md5<32-char-hash>"
+;;    Hash = md5(password + username)
+;;
+;; 3. Example with actual hash:
+;;    "codeb_app" "SCRAM-SHA-256$4096:abc...xyz$key1:key2"
+;; =============================================================================

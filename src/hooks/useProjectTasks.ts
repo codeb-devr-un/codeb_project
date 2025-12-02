@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/lib/auth-context'
-import { Task as TaskType, KanbanColumn } from '@/services/task-service'
+import { KanbanTask as TaskType, KanbanColumn } from '@/types/task'
 import { TaskStatus, TaskPriority } from '@/types/task'
 import { getTasks, createTask, updateTask, deleteTask, updateTasksOrder } from '@/actions/task'
 import { toast } from 'react-hot-toast'

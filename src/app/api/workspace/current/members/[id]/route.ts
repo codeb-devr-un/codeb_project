@@ -1,5 +1,10 @@
+// =============================================================================
+// Workspace Current Members API - CVE-CB-005 Fixed: Secure Logging
+// =============================================================================
+
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { secureLogger, createErrorResponse } from '@/lib/security'
 
 export async function PATCH(
     request: Request,
@@ -17,7 +22,8 @@ export async function PATCH(
 
         return NextResponse.json(updatedMember)
     } catch (error) {
-        console.error('Failed to update member:', error)
-        return NextResponse.json({ error: 'Failed to update member' }, { status: 500 })
+        // CVE-CB-005: Secure logging
+        secureLogger.error('Failed to update member', error as Error, { operation: 'workspace.current.members.update' })
+        return createErrorResponse('Failed to update member', 500, 'UPDATE_FAILED')
     }
 }

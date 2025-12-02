@@ -426,16 +426,27 @@ export default function ProjectCreateModal({ isOpen, onClose, onSubmit }: Projec
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     프로젝트 상태
                   </label>
-                  <select
-                    value={formData.status}
-                    onChange={(e) => setFormData({...formData, status: e.target.value as Project['status']})}
-                    className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                  >
-                    <option value="planning">기획</option>
-                    <option value="design">디자인</option>
-                    <option value="development">개발</option>
-                    <option value="testing">테스트</option>
-                  </select>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { value: 'planning', label: '기획', color: 'bg-violet-100 text-violet-700 ring-violet-500' },
+                      { value: 'design', label: '디자인', color: 'bg-pink-100 text-pink-700 ring-pink-500' },
+                      { value: 'development', label: '개발', color: 'bg-blue-100 text-blue-700 ring-blue-500' },
+                      { value: 'testing', label: '테스트', color: 'bg-amber-100 text-amber-700 ring-amber-500' }
+                    ].map(status => (
+                      <button
+                        key={status.value}
+                        type="button"
+                        onClick={() => setFormData({...formData, status: status.value as Project['status']})}
+                        className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                          formData.status === status.value
+                            ? `${status.color} ring-2 ring-offset-1`
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                      >
+                        {status.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}

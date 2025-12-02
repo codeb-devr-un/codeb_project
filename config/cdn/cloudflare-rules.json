@@ -1,0 +1,172 @@
+{
+  "name": "CodeB CDN Configuration",
+  "description": "Cloudflare Page Rules and Cache Rules for Hyperscale Production",
+  "version": "1.0.0",
+
+  "page_rules": [
+    {
+      "name": "Static Assets - Maximum Cache",
+      "targets": [
+        "*.codeb.app/_next/static/*",
+        "*.codeb.app/images/*",
+        "*.codeb.app/fonts/*"
+      ],
+      "actions": {
+        "cache_level": "cache_everything",
+        "edge_cache_ttl": 31536000,
+        "browser_cache_ttl": 31536000,
+        "rocket_loader": "off",
+        "minify": {
+          "html": false,
+          "css": true,
+          "js": true
+        }
+      }
+    },
+    {
+      "name": "API Endpoints - Bypass Cache",
+      "targets": [
+        "*.codeb.app/api/*"
+      ],
+      "actions": {
+        "cache_level": "bypass",
+        "disable_apps": true,
+        "disable_performance": true
+      }
+    },
+    {
+      "name": "Auth Pages - Bypass Cache",
+      "targets": [
+        "*.codeb.app/login*",
+        "*.codeb.app/register*",
+        "*.codeb.app/auth/*"
+      ],
+      "actions": {
+        "cache_level": "bypass",
+        "security_level": "high"
+      }
+    },
+    {
+      "name": "Dashboard Pages - Standard Cache",
+      "targets": [
+        "*.codeb.app/dashboard/*",
+        "*.codeb.app/projects/*",
+        "*.codeb.app/tasks/*"
+      ],
+      "actions": {
+        "cache_level": "standard",
+        "browser_cache_ttl": 0,
+        "edge_cache_ttl": 300
+      }
+    }
+  ],
+
+  "cache_rules": [
+    {
+      "name": "Cache Static with Versioning",
+      "expression": "(http.request.uri.path matches \"/_next/static/.*\" or http.request.uri.path matches \"/images/.*\")",
+      "action": "cache",
+      "cache_ttl": {
+        "browser": 31536000,
+        "edge": 31536000
+      },
+      "cache_key": {
+        "include_query_string": true
+      }
+    },
+    {
+      "name": "Cache HTML with Revalidation",
+      "expression": "(http.request.uri.path matches \"^/$\" or http.request.uri.path matches \"^/[a-z]+$\")",
+      "action": "cache",
+      "cache_ttl": {
+        "browser": 0,
+        "edge": 3600
+      },
+      "stale_while_revalidate": 86400
+    },
+    {
+      "name": "No Cache for Dynamic",
+      "expression": "(http.request.uri.path contains \"/api/\" or http.request.uri.path contains \"/auth/\")",
+      "action": "bypass"
+    }
+  ],
+
+  "transform_rules": [
+    {
+      "name": "Add Security Headers",
+      "expression": "true",
+      "action": "set_headers",
+      "headers": {
+        "X-Content-Type-Options": "nosniff",
+        "X-Frame-Options": "DENY",
+        "X-XSS-Protection": "1; mode=block",
+        "Referrer-Policy": "strict-origin-when-cross-origin",
+        "Permissions-Policy": "camera=(), microphone=(), geolocation=()"
+      }
+    },
+    {
+      "name": "Add Cache Status Header",
+      "expression": "true",
+      "action": "set_headers",
+      "headers": {
+        "X-Cache-Status": "${cf.cache.status}"
+      }
+    }
+  ],
+
+  "waf_rules": [
+    {
+      "name": "Rate Limit API",
+      "expression": "(http.request.uri.path contains \"/api/\")",
+      "action": "rate_limit",
+      "rate_limit": {
+        "requests": 100,
+        "period": 60,
+        "action": "challenge"
+      }
+    },
+    {
+      "name": "Block Bad Bots",
+      "expression": "(cf.client.bot and not cf.bot_management.verified_bot)",
+      "action": "challenge"
+    }
+  ],
+
+  "image_resizing": {
+    "enabled": true,
+    "compression": "lossless",
+    "formats": ["webp", "avif"],
+    "fit": "cover",
+    "quality": 85,
+    "metadata": "none"
+  },
+
+  "performance_settings": {
+    "auto_minify": {
+      "html": true,
+      "css": true,
+      "javascript": true
+    },
+    "brotli": true,
+    "early_hints": true,
+    "http2": true,
+    "http3": true,
+    "websockets": true,
+    "rocket_loader": false,
+    "mirage": true,
+    "polish": "lossless"
+  },
+
+  "ssl_settings": {
+    "mode": "full_strict",
+    "min_version": "1.2",
+    "always_use_https": true,
+    "automatic_https_rewrites": true,
+    "opportunistic_encryption": true
+  },
+
+  "dns_settings": {
+    "cname_flattening": "flatten_at_root",
+    "dnssec": true
+  }
+}

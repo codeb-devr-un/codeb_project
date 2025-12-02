@@ -48,7 +48,7 @@ export interface TaskComment {
 // 기본 Task 인터페이스
 export interface BaseTask {
   id: string
-  projectId: string
+  projectId?: string
   title: string
   description?: string
   assignee?: string
@@ -66,15 +66,26 @@ export interface BaseTask {
   updatedAt: Date
   createdBy: string
   createdByName?: string
+  department?: string // 부서 ID
+  color?: string
 }
 
 // 칸반보드용 Task
 export interface KanbanTask extends BaseTask {
   columnId: string
   order: number
+  progress?: number  // 0-100, 간트차트 연동용
   // 칸반 특화 필드
   attachmentCount?: number  // UI 표시용
   commentCount?: number     // UI 표시용
+}
+
+export interface KanbanColumn {
+  id: string
+  title: string
+  color: string
+  limit?: number
+  order: number
 }
 
 // 간트차트용 Task

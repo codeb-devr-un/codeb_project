@@ -1,42 +1,63 @@
-import { NextResponse } from 'next/server'
+// =============================================================================
+// Attendance Check-out API - CVE-CB-003 Fixed: Session-based Authentication
+// =============================================================================
+
+import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { redis } from '@/lib/redis'
+import { authenticateRequest, secureLogger, createErrorResponse } from '@/lib/security'
 
-const MOCK_USER_ID = 'test-user-id'
-
-export async function POST(request: Request) {
-    try {
-        const now = new Date()
-        const today = new Date()
-        today.setHours(0, 0, 0, 0)
-
-        // Find today's attendance
-        const attendance = await prisma.attendance.findFirst({
-            where: {
-                userId: MOCK_USER_ID,
-                date: {
-                    gte: today,
-                },
-            },
-        })
-
-        if (!attendance) {
-            return NextResponse.json({ error: 'No check-in record found' }, { status: 400 })
-        }
-
-        if (attendance.checkOut) {
-            return NextResponse.json({ error: 'Already checked out' }, { status: 400 })
-        }
-
-        const updated = await prisma.attendance.update({
-            where: { id: attendance.id },
-            data: {
-                checkOut: now,
-            },
-        })
-
-        return NextResponse.json(updated)
-    } catch (error) {
-        console.error('Check-out failed:', error)
-        return NextResponse.json({ error: 'Check-out failed' }, { status: 500 })
+export async function POST(request: NextRequest) {
+  try {
+    // CVE-CB-003 Fix: Use session-based authentication instead of x-user-id header
+    const user = await authenticateRequest()
+    if (!user) {
+      return createErrorResponse('Unauthorized', 401, 'AUTH_REQUIRED')
     }
+
+    const now = new Date()
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    // Find today's attendance
+    const attendance = await prisma.attendance.findFirst({
+      where: {
+        userId: user.id,
+        date: {
+          gte: today,
+        },
+      },
+    })
+
+    if (!attendance) {
+      return createErrorResponse('No check-in record found', 400, 'NO_CHECKIN_RECORD')
+    }
+
+    if (attendance.checkOut) {
+      return createErrorResponse('Already checked out', 400, 'ALREADY_CHECKED_OUT')
+    }
+
+    const updated = await prisma.attendance.update({
+      where: { id: attendance.id },
+      data: {
+        checkOut: now,
+      },
+    })
+
+    // Invalidate attendance cache
+    await redis.del(`attendance:api:${user.id}`)
+    await redis.del(`attendance:mobile:${user.id}`)
+
+    // CVE-CB-005 Fix: Use secure logging
+    secureLogger.info('Attendance check-out successful', {
+      operation: 'attendance.checkout',
+      userId: user.id,
+      attendanceId: attendance.id,
+    })
+
+    return NextResponse.json(updated)
+  } catch (error) {
+    secureLogger.error('Check-out failed', error as Error, { operation: 'attendance.checkout' })
+    return createErrorResponse('Check-out failed', 500, 'CHECKOUT_FAILED')
+  }
 }

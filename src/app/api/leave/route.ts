@@ -1,5 +1,10 @@
+// =============================================================================
+// Leave API - CVE-CB-005 Fixed: Secure Logging
+// =============================================================================
+
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { secureLogger, createErrorResponse } from '@/lib/security'
 
 const MOCK_USER_ID = 'test-user-id'
 
@@ -41,8 +46,9 @@ export async function GET(request: Request) {
             balance,
         })
     } catch (error) {
-        console.error('Failed to fetch leave data:', error)
-        return NextResponse.json({ error: 'Failed to fetch leave data' }, { status: 500 })
+        // CVE-CB-005: Secure logging
+        secureLogger.error('Failed to fetch leave data', error as Error, { operation: 'leave.list' })
+        return createErrorResponse('Failed to fetch leave data', 500, 'FETCH_FAILED')
     }
 }
 
@@ -52,7 +58,8 @@ export async function POST(request: Request) {
         // TODO: Create leave request in database
         return NextResponse.json({ success: true })
     } catch (error) {
-        console.error('Failed to create leave request:', error)
-        return NextResponse.json({ error: 'Failed to create leave request' }, { status: 500 })
+        // CVE-CB-005: Secure logging
+        secureLogger.error('Failed to create leave request', error as Error, { operation: 'leave.create' })
+        return createErrorResponse('Failed to create leave request', 500, 'CREATE_FAILED')
     }
 }

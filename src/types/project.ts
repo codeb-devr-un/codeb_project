@@ -26,6 +26,7 @@ export interface KanbanCard {
   checklist?: ChecklistItem[]
   attachments?: number
   comments?: number
+  department?: string
 }
 
 export interface ChecklistItem {

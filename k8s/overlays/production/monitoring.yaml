@@ -1,0 +1,247 @@
+# =============================================================================
+# Monitoring Stack - Prometheus & Grafana
+# =============================================================================
+apiVersion: v1
+kind: ServiceMonitor
+metadata:
+  name: codeb-app-monitor
+  namespace: codeb
+  labels:
+    app.kubernetes.io/name: codeb
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: codeb
+  endpoints:
+    - port: http
+      path: /api/metrics
+      interval: 15s
+      scrapeTimeout: 10s
+
+---
+# =============================================================================
+# Prometheus Rules - Alerting
+# =============================================================================
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: codeb-alerts
+  namespace: codeb
+spec:
+  groups:
+    - name: codeb.rules
+      rules:
+        # High error rate
+        - alert: HighErrorRate
+          expr: |
+            (sum(rate(http_requests_total{job="codeb-app",status=~"5.."}[5m]))
+            / sum(rate(http_requests_total{job="codeb-app"}[5m]))) > 0.05
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: High error rate detected
+            description: "Error rate is {{ $value | humanizePercentage }} (threshold: 5%)"
+
+        # High latency
+        - alert: HighLatency
+          expr: |
+            histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job="codeb-app"}[5m])) by (le)) > 0.5
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: High latency detected
+            description: "95th percentile latency is {{ $value }}s (threshold: 500ms)"
+
+        # Pod not ready
+        - alert: PodNotReady
+          expr: |
+            kube_pod_status_ready{namespace="codeb", condition="true"} == 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Pod not ready
+            description: "Pod {{ $labels.pod }} is not ready"
+
+        # High memory usage
+        - alert: HighMemoryUsage
+          expr: |
+            (container_memory_usage_bytes{namespace="codeb"}
+            / container_spec_memory_limit_bytes{namespace="codeb"}) > 0.9
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: High memory usage
+            description: "Memory usage is {{ $value | humanizePercentage }}"
+
+        # Redis cluster unhealthy
+        - alert: RedisClusterUnhealthy
+          expr: |
+            redis_cluster_state{namespace="codeb"} != 1
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: Redis cluster unhealthy
+            description: "Redis cluster is in an unhealthy state"
+
+        # PgBouncer connection saturation
+        - alert: PgBouncerConnectionSaturation
+          expr: |
+            (pgbouncer_pools_server_active_connections{namespace="codeb"}
+            / pgbouncer_pools_server_maxconn{namespace="codeb"}) > 0.9
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: PgBouncer connection saturation
+            description: "PgBouncer is at {{ $value | humanizePercentage }} connection capacity"
+
+        # Queue depth high
+        - alert: QueueDepthHigh
+          expr: |
+            bullmq_queue_waiting{namespace="codeb"} > 1000
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: High queue depth
+            description: "Queue {{ $labels.queue }} has {{ $value }} waiting jobs"
+
+---
+# =============================================================================
+# Grafana Dashboard ConfigMap
+# =============================================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards
+  namespace: codeb
+  labels:
+    grafana_dashboard: "1"
+data:
+  codeb-overview.json: |
+    {
+      "annotations": {
+        "list": []
+      },
+      "editable": true,
+      "fiscalYearStartMonth": 0,
+      "graphTooltip": 0,
+      "id": null,
+      "links": [],
+      "liveNow": false,
+      "panels": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "reqps"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 0
+          },
+          "id": 1,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum(rate(http_requests_total{job=\"codeb-app\"}[5m]))",
+              "legendFormat": "Requests/s",
+              "refId": "A"
+            }
+          ],
+          "title": "Request Rate",
+          "type": "timeseries"
+        }
+      ],
+      "refresh": "5s",
+      "schemaVersion": 38,
+      "style": "dark",
+      "tags": ["codeb"],
+      "templating": {
+        "list": []
+      },
+      "time": {
+        "from": "now-1h",
+        "to": "now"
+      },
+      "timepicker": {},
+      "timezone": "",
+      "title": "CodeB Overview",
+      "uid": "codeb-overview",
+      "version": 1,
+      "weekStart": ""
+    }

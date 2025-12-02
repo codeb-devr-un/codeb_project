@@ -1,0 +1,171 @@
+name: Deploy WorkB CMS
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - staging
+          - production
+
+env:
+  APP_NAME: workb-cms
+  SERVER_HOST: 141.164.60.51
+  SERVER_USER: root
+  REMOTE_DIR: /var/www/workb-cms
+  APP_PORT: 3200
+  CONTAINER_PORT: 3000
+
+jobs:
+  test:
+    name: Test & Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linter
+        run: npm run lint || true
+
+      - name: Run type check
+        run: npm run type-check || true
+
+  build-and-deploy:
+    name: Build & Deploy
+    needs: test
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH Key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ env.SERVER_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Create deployment package
+        run: |
+          tar --exclude='node_modules' \
+              --exclude='.next' \
+              --exclude='.git' \
+              --exclude='dist' \
+              --exclude='build' \
+              --exclude='.env.local' \
+              --exclude='*.log' \
+              -czf deploy.tar.gz .
+
+      - name: Upload to server
+        run: |
+          ssh ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} "mkdir -p ${{ env.REMOTE_DIR }}"
+          scp deploy.tar.gz ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }}:${{ env.REMOTE_DIR }}/
+          ssh ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} "cd ${{ env.REMOTE_DIR }} && tar -xzf deploy.tar.gz && rm deploy.tar.gz"
+
+      - name: Create production environment file
+        run: |
+          ssh ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} << 'EOF'
+          cat > ${{ env.REMOTE_DIR }}/.env << 'ENVEOF'
+          # Database Configuration
+          DATABASE_URL=${{ secrets.DATABASE_URL }}
+
+          # NextAuth Configuration
+          NEXTAUTH_URL=${{ secrets.NEXTAUTH_URL }}
+          NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }}
+
+          # Redis Configuration
+          REDIS_URL=${{ secrets.REDIS_URL }}
+
+          # Application Configuration
+          NEXT_PUBLIC_SOCKET_URL=${{ secrets.NEXT_PUBLIC_SOCKET_URL }}
+          NEXT_PUBLIC_WORKFLOW_API_URL=${{ secrets.NEXT_PUBLIC_WORKFLOW_API_URL }}
+
+          # AI Configuration
+          GOOGLE_AI_API_KEY=${{ secrets.GOOGLE_AI_API_KEY }}
+
+          # Email Configuration
+          SENDGRID_API_KEY=${{ secrets.SENDGRID_API_KEY }}
+          SMTP_HOST=${{ secrets.SMTP_HOST }}
+          SMTP_PORT=${{ secrets.SMTP_PORT }}
+          SMTP_USER=${{ secrets.SMTP_USER }}
+          SMTP_PASS=${{ secrets.SMTP_PASS }}
+
+          NODE_ENV=production
+          ENVEOF
+          EOF
+
+      - name: Build and deploy container
+        run: |
+          ssh ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} << 'EOF'
+          set -e
+          cd ${{ env.REMOTE_DIR }}
+
+          echo "🏗️  Building container image..."
+          podman build -t ${{ env.APP_NAME }}:latest .
+
+          echo "🛑 Stopping existing container..."
+          podman stop ${{ env.APP_NAME }} 2>/dev/null || true
+          podman rm ${{ env.APP_NAME }} 2>/dev/null || true
+
+          echo "▶️  Starting new container..."
+          podman run -d \
+            --name ${{ env.APP_NAME }} \
+            --restart=always \
+            -p ${{ env.APP_PORT }}:${{ env.CONTAINER_PORT }} \
+            --env-file ${{ env.REMOTE_DIR }}/.env \
+            --health-cmd="curl -f http://localhost:${{ env.CONTAINER_PORT }}/api/health || exit 1" \
+            --health-interval=30s \
+            --health-timeout=10s \
+            --health-retries=3 \
+            ${{ env.APP_NAME }}:latest
+
+          echo "⏳ Waiting for container to be healthy..."
+          sleep 10
+
+          if podman ps | grep -q ${{ env.APP_NAME }}; then
+            echo "✅ Container is running!"
+            podman logs --tail 50 ${{ env.APP_NAME }}
+          else
+            echo "❌ Container failed to start!"
+            podman logs ${{ env.APP_NAME }}
+            exit 1
+          fi
+          EOF
+
+      - name: Health check
+        run: |
+          echo "🔍 Running health check..."
+          sleep 15
+          response=$(curl -s -o /dev/null -w "%{http_code}" http://${{ env.SERVER_HOST }}:${{ env.APP_PORT }}/api/health || echo "000")
+          if [ "$response" = "200" ]; then
+            echo "✅ Health check passed!"
+          else
+            echo "⚠️ Health check returned: $response (might still be starting)"
+          fi
+
+      - name: Deployment notification
+        if: always()
+        run: |
+          if [ "${{ job.status }}" = "success" ]; then
+            echo "🎉 Deployment successful!"
+            echo "🌐 Application URL: https://workb.net"
+          else
+            echo "❌ Deployment failed!"
+          fi

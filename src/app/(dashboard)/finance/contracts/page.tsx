@@ -1,9 +1,13 @@
 'use client'
 
+// ===========================================
+// Glass Morphism Finance Contracts Page
+// ===========================================
+
 import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { FileText, Plus } from 'lucide-react'
+import { FileText, Plus, Calendar, DollarSign } from 'lucide-react'
 import { format } from 'date-fns'
 
 export default function ContractsPage() {
@@ -26,64 +30,100 @@ export default function ContractsPage() {
         }
     }
 
-    const getStatusColor = (status: string) => {
-        const colors = {
-            DRAFT: 'bg-gray-100 text-gray-700',
-            ACTIVE: 'bg-green-100 text-green-700',
-            COMPLETED: 'bg-blue-100 text-blue-700',
-            TERMINATED: 'bg-red-100 text-red-700',
+    const getStatusStyle = (status: string) => {
+        const styles = {
+            DRAFT: 'bg-slate-100 text-slate-700',
+            ACTIVE: 'bg-emerald-100 text-emerald-700',
+            COMPLETED: 'bg-lime-100 text-lime-700',
+            TERMINATED: 'bg-rose-100 text-rose-700',
         }
-        return colors[status as keyof typeof colors] || 'bg-gray-100'
+        return styles[status as keyof typeof styles] || 'bg-slate-100 text-slate-700'
+    }
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center h-96">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-lime-400"></div>
+            </div>
+        )
     }
 
     return (
         <div className="p-6 space-y-6">
+            {/* 헤더 */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold">계약 관리</h1>
-                    <p className="text-gray-500">프로젝트 계약을 관리합니다</p>
+                    <h1 className="text-3xl font-bold tracking-tight text-slate-900 flex items-center gap-3">
+                        <div className="p-2 bg-lime-100 rounded-xl">
+                            <FileText className="w-6 h-6 text-lime-600" />
+                        </div>
+                        계약 관리
+                    </h1>
+                    <p className="text-slate-500 mt-2">프로젝트 계약을 관리합니다</p>
                 </div>
-                <Button>
+                <Button variant="limePrimary" className="rounded-xl">
                     <Plus className="w-4 h-4 mr-2" />
                     새 계약 등록
                 </Button>
             </div>
 
+            {/* 계약 목록 */}
             <div className="grid gap-4">
-                {contracts.map((contract) => (
-                    <Card key={contract.id}>
-                        <CardHeader>
-                            <div className="flex items-start justify-between">
-                                <div>
-                                    <CardTitle className="flex items-center gap-2">
-                                        <FileText className="w-5 h-5" />
-                                        {contract.title}
-                                    </CardTitle>
-                                    <p className="text-sm text-gray-500 mt-1">{contract.clientName}</p>
-                                </div>
-                                <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(contract.status)}`}>
-                                    {contract.status}
-                                </span>
-                            </div>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="grid grid-cols-3 gap-4 text-sm">
-                                <div>
-                                    <div className="text-gray-500">계약 금액</div>
-                                    <div className="font-medium">{contract.amount.toLocaleString()}원</div>
-                                </div>
-                                <div>
-                                    <div className="text-gray-500">시작일</div>
-                                    <div className="font-medium">{format(new Date(contract.startDate), 'yyyy-MM-dd')}</div>
-                                </div>
-                                <div>
-                                    <div className="text-gray-500">종료일</div>
-                                    <div className="font-medium">{format(new Date(contract.endDate), 'yyyy-MM-dd')}</div>
-                                </div>
-                            </div>
-                        </CardContent>
+                {contracts.length === 0 ? (
+                    <Card variant="glass" className="p-12 text-center">
+                        <div className="p-4 w-fit mx-auto bg-lime-100 rounded-2xl mb-4">
+                            <FileText className="w-10 h-10 text-lime-600" />
+                        </div>
+                        <h3 className="text-lg font-semibold text-slate-900 mb-2">등록된 계약이 없습니다</h3>
+                        <p className="text-slate-500">새 계약을 등록해주세요.</p>
                     </Card>
-                ))}
+                ) : (
+                    contracts.map((contract) => (
+                        <Card key={contract.id} variant="glass" className="hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300">
+                            <CardHeader>
+                                <div className="flex items-start justify-between">
+                                    <div>
+                                        <CardTitle className="flex items-center gap-2 text-slate-900">
+                                            <div className="p-2 bg-lime-100 rounded-lg">
+                                                <FileText className="w-5 h-5 text-lime-600" />
+                                            </div>
+                                            {contract.title}
+                                        </CardTitle>
+                                        <p className="text-sm text-slate-500 mt-1">{contract.clientName}</p>
+                                    </div>
+                                    <span className={`px-3 py-1 rounded-lg text-xs font-medium ${getStatusStyle(contract.status)}`}>
+                                        {contract.status}
+                                    </span>
+                                </div>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="grid grid-cols-3 gap-4 text-sm">
+                                    <div className="flex items-center gap-2">
+                                        <DollarSign className="w-4 h-4 text-lime-600" />
+                                        <div>
+                                            <div className="text-slate-500">계약 금액</div>
+                                            <div className="font-medium text-slate-900">{contract.amount.toLocaleString()}원</div>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <Calendar className="w-4 h-4 text-emerald-600" />
+                                        <div>
+                                            <div className="text-slate-500">시작일</div>
+                                            <div className="font-medium text-slate-900">{format(new Date(contract.startDate), 'yyyy-MM-dd')}</div>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <Calendar className="w-4 h-4 text-rose-600" />
+                                        <div>
+                                            <div className="text-slate-500">종료일</div>
+                                            <div className="font-medium text-slate-900">{format(new Date(contract.endDate), 'yyyy-MM-dd')}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    ))
+                )}
             </div>
         </div>
     )

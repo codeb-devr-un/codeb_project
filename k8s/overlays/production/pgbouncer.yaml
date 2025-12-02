@@ -1,0 +1,163 @@
+# =============================================================================
+# PgBouncer Deployment - Connection Pooling Layer
+# Handles 100K concurrent connections efficiently
+# =============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pgbouncer
+  namespace: codeb
+  labels:
+    app.kubernetes.io/name: pgbouncer
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: pgbouncer
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: pgbouncer
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: pgbouncer
+                topologyKey: kubernetes.io/hostname
+
+      containers:
+        - name: pgbouncer
+          image: edoburu/pgbouncer:1.21.0
+          ports:
+            - name: pgbouncer
+              containerPort: 6432
+
+          env:
+            # Primary database
+            - name: POSTGRES_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secrets
+                  key: host
+            - name: POSTGRES_READ_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secrets
+                  key: read-host
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secrets
+                  key: database
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secrets
+                  key: username
+            - name: PGBOUNCER_ADMIN_USER
+              value: "pgbouncer_admin"
+            - name: PGBOUNCER_STATS_USER
+              value: "pgbouncer_stats"
+
+          volumeMounts:
+            - name: config
+              mountPath: /etc/pgbouncer
+            - name: userlist
+              mountPath: /etc/pgbouncer/userlist.txt
+              subPath: userlist.txt
+
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+            limits:
+              cpu: "1000m"
+              memory: "512Mi"
+
+          livenessProbe:
+            tcpSocket:
+              port: pgbouncer
+            initialDelaySeconds: 10
+            periodSeconds: 10
+
+          readinessProbe:
+            tcpSocket:
+              port: pgbouncer
+            initialDelaySeconds: 5
+            periodSeconds: 5
+
+      volumes:
+        - name: config
+          configMap:
+            name: pgbouncer-config
+        - name: userlist
+          secret:
+            secretName: pgbouncer-secrets
+            items:
+              - key: userlist.txt
+                path: userlist.txt
+
+---
+# =============================================================================
+# PgBouncer Service
+# =============================================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: pgbouncer
+  namespace: codeb
+  labels:
+    app.kubernetes.io/name: pgbouncer
+spec:
+  type: ClusterIP
+  ports:
+    - name: pgbouncer
+      port: 6432
+      targetPort: pgbouncer
+  selector:
+    app.kubernetes.io/name: pgbouncer
+
+---
+# =============================================================================
+# PostgreSQL Secrets (for PgBouncer)
+# =============================================================================
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgres-secrets
+  namespace: codeb
+type: Opaque
+stringData:
+  host: "${POSTGRES_HOST}"
+  read-host: "${POSTGRES_READ_HOST}"
+  database: "${POSTGRES_DB}"
+  username: "${POSTGRES_USER}"
+  password: "${POSTGRES_PASSWORD}"
+
+---
+# =============================================================================
+# PgBouncer HPA - Auto-scale based on connections
+# =============================================================================
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: pgbouncer-hpa
+  namespace: codeb
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: pgbouncer
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70

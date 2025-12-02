@@ -1,0 +1,162 @@
+# =============================================================================
+# Redis Cluster StatefulSet - Production Hyperscale
+# 6-node cluster (3 masters + 3 replicas) for high availability
+# =============================================================================
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis-cluster
+  namespace: codeb
+  labels:
+    app.kubernetes.io/name: redis-cluster
+spec:
+  serviceName: redis-cluster
+  replicas: 6
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: redis-cluster
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: redis-cluster
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app.kubernetes.io/name: redis-cluster
+              topologyKey: kubernetes.io/hostname
+
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          command:
+            - redis-server
+            - /etc/redis/redis.conf
+          ports:
+            - name: redis
+              containerPort: 6379
+            - name: cluster-bus
+              containerPort: 16379
+
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: redis-secrets
+                  key: password
+
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "2Gi"
+            limits:
+              cpu: "2000m"
+              memory: "4Gi"
+
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: config
+              mountPath: /etc/redis
+
+          readinessProbe:
+            exec:
+              command:
+                - redis-cli
+                - ping
+            initialDelaySeconds: 5
+            periodSeconds: 5
+
+          livenessProbe:
+            exec:
+              command:
+                - redis-cli
+                - ping
+            initialDelaySeconds: 30
+            periodSeconds: 10
+
+      volumes:
+        - name: config
+          configMap:
+            name: redis-cluster-config
+
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: fast-ssd
+        resources:
+          requests:
+            storage: 20Gi
+
+---
+# =============================================================================
+# Redis Cluster Service
+# =============================================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-cluster
+  namespace: codeb
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: redis
+    - name: cluster-bus
+      port: 16379
+      targetPort: cluster-bus
+  selector:
+    app.kubernetes.io/name: redis-cluster
+
+---
+# =============================================================================
+# Redis Cluster Initialization Job
+# =============================================================================
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: redis-cluster-init
+  namespace: codeb
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: init
+          image: redis:7-alpine
+          command:
+            - /bin/sh
+            - -c
+            - |
+              # Wait for all pods to be ready
+              sleep 30
+
+              # Create cluster
+              redis-cli --cluster create \
+                redis-cluster-0.redis-cluster:6379 \
+                redis-cluster-1.redis-cluster:6379 \
+                redis-cluster-2.redis-cluster:6379 \
+                redis-cluster-3.redis-cluster:6379 \
+                redis-cluster-4.redis-cluster:6379 \
+                redis-cluster-5.redis-cluster:6379 \
+                --cluster-replicas 1 \
+                --cluster-yes
+
+---
+# =============================================================================
+# Redis Secrets
+# =============================================================================
+apiVersion: v1
+kind: Secret
+metadata:
+  name: redis-secrets
+  namespace: codeb
+type: Opaque
+stringData:
+  password: "${REDIS_PASSWORD}"

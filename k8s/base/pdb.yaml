@@ -1,0 +1,80 @@
+# =============================================================================
+# Pod Disruption Budget - High Availability Guarantee
+# Ensures minimum availability during voluntary disruptions
+# =============================================================================
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: codeb-app-pdb
+  namespace: codeb
+  labels:
+    app.kubernetes.io/name: codeb
+    app.kubernetes.io/component: pdb
+spec:
+  # Maintain at least 80% of pods during disruptions
+  minAvailable: 80%
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: codeb
+      app.kubernetes.io/component: app
+
+---
+# =============================================================================
+# Worker PDB - Ensure job processing continuity
+# =============================================================================
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: codeb-worker-pdb
+  namespace: codeb
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: codeb
+      app.kubernetes.io/component: worker
+
+---
+# =============================================================================
+# Service Account
+# =============================================================================
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: codeb-app
+  namespace: codeb
+  labels:
+    app.kubernetes.io/name: codeb
+
+---
+# =============================================================================
+# RBAC - Minimum required permissions
+# =============================================================================
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: codeb-app-role
+  namespace: codeb
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: ["codeb-secrets"]
+    verbs: ["get"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: codeb-app-rolebinding
+  namespace: codeb
+subjects:
+  - kind: ServiceAccount
+    name: codeb-app
+    namespace: codeb
+roleRef:
+  kind: Role
+  name: codeb-app-role
+  apiGroup: rbac.authorization.k8s.io

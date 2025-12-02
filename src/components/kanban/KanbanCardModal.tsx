@@ -5,6 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { KanbanCard, ChecklistItem } from '@/types/project'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
+import { DEPARTMENTS, getDepartmentColor, getDepartmentName } from '@/constants/departments'
+import { Check } from 'lucide-react'
 
 interface KanbanCardModalProps {
   card: KanbanCard | null
@@ -14,12 +16,12 @@ interface KanbanCardModalProps {
   onDelete: (cardId: string) => void
 }
 
-export default function KanbanCardModal({ 
-  card, 
-  isOpen, 
-  onClose, 
-  onUpdate, 
-  onDelete 
+export default function KanbanCardModal({
+  card,
+  isOpen,
+  onClose,
+  onUpdate,
+  onDelete
 }: KanbanCardModalProps) {
   const [editMode, setEditMode] = useState(false)
   const [formData, setFormData] = useState({
@@ -28,7 +30,8 @@ export default function KanbanCardModal({
     priority: card?.priority || 'medium' as const,
     assignee: card?.assignee || '',
     dueDate: card?.dueDate ? format(card.dueDate, 'yyyy-MM-dd') : '',
-    labels: card?.labels.join(', ') || ''
+    labels: card?.labels.join(', ') || '',
+    department: card?.department || ''
   })
   const [newChecklistItem, setNewChecklistItem] = useState('')
 
@@ -42,7 +45,8 @@ export default function KanbanCardModal({
       priority: formData.priority,
       assignee: formData.assignee,
       dueDate: formData.dueDate ? new Date(formData.dueDate) : undefined,
-      labels: formData.labels.split(',').map(l => l.trim()).filter(l => l)
+      labels: formData.labels.split(',').map(l => l.trim()).filter(l => l),
+      department: formData.department
     }
     onUpdate(updatedCard)
     setEditMode(false)
@@ -50,23 +54,23 @@ export default function KanbanCardModal({
 
   const handleChecklistToggle = (itemId: string) => {
     if (!card.checklist) return
-    
+
     const updatedChecklist = card.checklist.map(item =>
       item.id === itemId ? { ...item, completed: !item.completed } : item
     )
-    
+
     onUpdate({ ...card, checklist: updatedChecklist })
   }
 
   const handleAddChecklistItem = () => {
     if (!newChecklistItem.trim()) return
-    
+
     const newItem: ChecklistItem = {
       id: `check-${Date.now()}`,
       text: newChecklistItem.trim(),
       completed: false
     }
-    
+
     const updatedChecklist = [...(card.checklist || []), newItem]
     onUpdate({ ...card, checklist: updatedChecklist })
     setNewChecklistItem('')
@@ -74,7 +78,7 @@ export default function KanbanCardModal({
 
   const handleDeleteChecklistItem = (itemId: string) => {
     if (!card.checklist) return
-    
+
     const updatedChecklist = card.checklist.filter(item => item.id !== itemId)
     onUpdate({ ...card, checklist: updatedChecklist })
   }
@@ -94,6 +98,9 @@ export default function KanbanCardModal({
       default: return 'text-gray-600 bg-gray-100'
     }
   }
+
+  // 현재 선택된 부서 정보 가져오기 (고정된 DEPARTMENTS 기준)
+  const currentDepartment = DEPARTMENTS.find(d => d.id === (editMode ? formData.department : card.department))
 
   return (
     <AnimatePresence>
@@ -117,23 +124,32 @@ export default function KanbanCardModal({
               <span className={`px-2 py-1 text-xs font-medium rounded-full ${getPriorityColor(card.priority)}`}>
                 {card.priority.toUpperCase()}
               </span>
+              {currentDepartment && (
+                <span
+                  className="px-2 py-1 text-xs font-medium rounded-full text-white"
+                  style={{ backgroundColor: currentDepartment.color }}
+                >
+                  {currentDepartment.name}
+                </span>
+              )}
               {card.dueDate && (
                 <span className="text-sm text-gray-600">
                   📅 {format(card.dueDate, 'yyyy년 MM월 dd일', { locale: ko })}
                 </span>
               )}
             </div>
-            
+
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setEditMode(!editMode)}
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                title="수정"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                 </svg>
               </button>
-              
+
               <button
                 onClick={() => {
                   if (confirm('이 카드를 삭제하시겠습니까?')) {
@@ -142,15 +158,17 @@ export default function KanbanCardModal({
                   }
                 }}
                 className="p-2 hover:bg-red-100 text-red-600 rounded-lg transition-colors"
+                title="삭제"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                 </svg>
               </button>
-              
+
               <button
                 onClick={onClose}
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                title="닫기"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -195,42 +213,55 @@ export default function KanbanCardModal({
 
             {/* 메타 정보 편집 */}
             {editMode && (
-              <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">우선순위</label>
-                  <select
-                    value={formData.priority}
-                    onChange={(e) => setFormData({ ...formData, priority: e.target.value as any })}
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
-                  >
-                    <option value="low">낮음</option>
-                    <option value="medium">보통</option>
-                    <option value="high">높음</option>
-                    <option value="urgent">긴급</option>
-                  </select>
+                  <div className="flex gap-2">
+                    {[
+                      { value: 'low', label: '낮음', activeStyle: 'bg-emerald-100 text-emerald-700 ring-2 ring-emerald-500' },
+                      { value: 'medium', label: '보통', activeStyle: 'bg-lime-100 text-lime-700 ring-2 ring-lime-500' },
+                      { value: 'high', label: '높음', activeStyle: 'bg-amber-100 text-amber-700 ring-2 ring-amber-500' },
+                      { value: 'urgent', label: '긴급', activeStyle: 'bg-rose-100 text-rose-700 ring-2 ring-rose-500' }
+                    ].map(priority => (
+                      <button
+                        key={priority.value}
+                        type="button"
+                        onClick={() => setFormData({ ...formData, priority: priority.value as any })}
+                        className={`flex-1 px-3 py-2 rounded-xl text-sm font-medium transition-all ${
+                          formData.priority === priority.value
+                            ? priority.activeStyle
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                      >
+                        {priority.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">담당자</label>
-                  <input
-                    type="text"
-                    value={formData.assignee}
-                    onChange={(e) => setFormData({ ...formData, assignee: e.target.value })}
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
-                    placeholder="담당자 이름"
-                  />
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">담당자</label>
+                    <input
+                      type="text"
+                      value={formData.assignee}
+                      onChange={(e) => setFormData({ ...formData, assignee: e.target.value })}
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                      placeholder="담당자 이름"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">마감일</label>
+                    <input
+                      type="date"
+                      value={formData.dueDate}
+                      onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
                 </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">마감일</label>
-                  <input
-                    type="date"
-                    value={formData.dueDate}
-                    onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
-                  />
-                </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">라벨</label>
                   <input
@@ -240,6 +271,39 @@ export default function KanbanCardModal({
                     className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
                     placeholder="라벨을 쉼표로 구분"
                   />
+                </div>
+
+                {/* 부서 선택 (클릭형 UI) - 고정된 DEPARTMENTS 사용 */}
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">부서</label>
+
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => setFormData({ ...formData, department: '' })}
+                      className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${!formData.department
+                          ? 'bg-gray-800 text-white shadow-md'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                    >
+                      선택 안함
+                    </button>
+                    {DEPARTMENTS.map(dept => (
+                      <button
+                        key={dept.id}
+                        onClick={() => setFormData({ ...formData, department: dept.id })}
+                        className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all flex items-center gap-1 ${formData.department === dept.id
+                            ? 'text-white shadow-md ring-2 ring-offset-1 ring-gray-200'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                          }`}
+                        style={{
+                          backgroundColor: formData.department === dept.id ? dept.color : undefined
+                        }}
+                      >
+                        {dept.name}
+                        {formData.department === dept.id && <Check className="w-3 h-3 ml-1" />}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
@@ -364,7 +428,8 @@ export default function KanbanCardModal({
                     priority: card.priority,
                     assignee: card.assignee || '',
                     dueDate: card.dueDate ? format(card.dueDate, 'yyyy-MM-dd') : '',
-                    labels: card.labels.join(', ')
+                    labels: card.labels.join(', '),
+                    department: card.department || ''
                   })
                 }}
                 className="btn btn-secondary flex-1"
