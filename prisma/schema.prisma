@@ -342,6 +342,10 @@ model Task {
   createdBy String
   creator   User   @relation("CreatedTasks", fields: [createdBy], references: [id])
 
+  // 부서(팀) 연결
+  teamId String?
+  team   Team?   @relation(fields: [teamId], references: [id], onDelete: SetNull)
+
   labels String[]
 
   // Kanban specific
@@ -585,6 +589,7 @@ model Team {
 
   workspace Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   members   TeamMember[]
+  tasks     Task[]
 
   @@index([workspaceId, order])
 }
