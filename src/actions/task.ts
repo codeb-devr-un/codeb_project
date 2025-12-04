@@ -22,7 +22,8 @@ export async function getTasks(projectId: string) {
                     include: {
                         user: true
                     }
-                }
+                },
+                team: true  // Team 정보 포함
             },
             orderBy: {
                 order: 'asc'
@@ -36,6 +37,8 @@ export async function getTasks(projectId: string) {
             // Frontend expects 'assignee' string sometimes, or 'assigneeName'
             assigneeName: t.assignee?.name,
             assigneeId: t.assigneeId,
+            // teamId를 department로 매핑 (프론트엔드 호환)
+            department: t.teamId,
             // Ensure dates are Date objects (Prisma returns Date objects)
             startDate: t.startDate?.toISOString() || null,
             dueDate: t.dueDate?.toISOString() || null,
@@ -140,6 +143,7 @@ export async function createTask(projectId: string | undefined | null, data: {
     order?: number
     labels?: string[]
     color?: string
+    teamId?: string  // 부서(팀) ID 추가
 }) {
     try {
         const task = await prisma.task.create({
@@ -156,7 +160,8 @@ export async function createTask(projectId: string | undefined | null, data: {
                 columnId: data.columnId,
                 order: data.order || 0,
                 labels: data.labels || [],
-                color: data.color
+                color: data.color,
+                teamId: data.teamId  // 부서(팀) ID 저장
             }
         })
 

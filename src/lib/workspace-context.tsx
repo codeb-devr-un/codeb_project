@@ -10,6 +10,25 @@ import { useSession } from 'next-auth/react'
 import toast from 'react-hot-toast'
 import { getWorkspaces, getWorkspaceFeatures } from '@/actions/workspace'
 
+// 부서(팀) 타입
+export interface Department {
+    id: string
+    name: string
+    color: string
+    order: number
+    memberCount?: number
+}
+
+// 레거시 부서 키를 위한 기본 색상/이름 매핑 (기존 Mock 데이터 호환)
+export const LEGACY_DEPARTMENT_MAP: Record<string, { name: string; color: string }> = {
+    development: { name: '개발팀', color: '#3B82F6' },
+    design: { name: '디자인팀', color: '#EC4899' },
+    planning: { name: '기획팀', color: '#8B5CF6' },
+    operations: { name: '운영팀', color: '#10B981' },
+    marketing: { name: '마케팅팀', color: '#F59E0B' },
+    hr: { name: '인사팀', color: '#6366F1' },
+}
+
 const isDev = process.env.NODE_ENV === 'development'
 
 // 워크스페이스 생성 페이지에서는 리다이렉트하지 않음
@@ -66,12 +85,16 @@ interface WorkspaceContextType {
     workspaces: Workspace[]
     loading: boolean
     features: WorkspaceFeatures | null
+    departments: Department[] // 부서(팀) 목록
     currentRole: 'admin' | 'member' // 현재 워크스페이스에서의 역할
     isAdmin: boolean // 관리자 여부 헬퍼
     switchWorkspace: (workspaceId: string) => Promise<void>
     createWorkspace: (name: string, domain: string) => Promise<Workspace>
     refreshWorkspaces: () => Promise<void>
+    refreshDepartments: () => Promise<void> // 부서 목록 새로고침
     isFeatureEnabled: (featureKey: keyof WorkspaceFeatures) => boolean
+    getDepartmentColor: (departmentId?: string) => string // 부서 색상 조회
+    getDepartmentName: (departmentId?: string) => string // 부서 이름 조회
 }
 
 const WorkspaceContext = createContext<WorkspaceContextType | null>(null)
@@ -80,6 +103,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     const [currentWorkspace, setCurrentWorkspace] = useState<Workspace | null>(null)
     const [workspaces, setWorkspaces] = useState<Workspace[]>([])
     const [features, setFeatures] = useState<WorkspaceFeatures | null>(null)
+    const [departments, setDepartments] = useState<Department[]>([])
     const [loading, setLoading] = useState(true)
     const [hasAttemptedLoad, setHasAttemptedLoad] = useState(false)
     const router = useRouter()
@@ -109,10 +133,11 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         }
     }, [sessionStatus, hasAttemptedLoad])
 
-    // features 로드 - currentWorkspace 변경 시
+    // features 및 departments 로드 - currentWorkspace 변경 시
     useEffect(() => {
         if (currentWorkspace?.id) {
             loadFeatures(currentWorkspace.id)
+            loadDepartments(currentWorkspace.id)
         }
     }, [currentWorkspace?.id])
 
@@ -146,6 +171,56 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         // id, workspaceId 등 boolean이 아닌 필드는 true 반환
         if (featureKey === 'id' || featureKey === 'workspaceId') return true
         return features[featureKey] as boolean
+    }
+
+    // 부서(팀) 목록 로드
+    const loadDepartments = async (workspaceId: string) => {
+        try {
+            if (isDev) console.log('[DEV] 부서 목록 로드 중:', workspaceId)
+            const response = await fetch(`/api/workspace/${workspaceId}/teams`)
+
+            if (!response.ok) {
+                throw new Error('Failed to fetch departments')
+            }
+
+            const data = await response.json()
+            if (isDev) console.log('[DEV] 부서 로드 완료:', data.length, '개')
+            setDepartments(data)
+        } catch {
+            if (isDev) console.log('[DEV] 부서 로드 실패')
+            setDepartments([])
+        }
+    }
+
+    // 부서 목록 새로고침
+    const refreshDepartments = async () => {
+        if (currentWorkspace?.id) {
+            await loadDepartments(currentWorkspace.id)
+        }
+    }
+
+    // 부서 ID로 색상 조회 (레거시 문자열 키 fallback 포함)
+    const getDepartmentColor = (departmentId?: string): string => {
+        if (!departmentId) return '#94A3B8' // Default slate-400
+        // 먼저 실제 부서 목록에서 찾기
+        const dept = departments.find(d => d.id === departmentId)
+        if (dept) return dept.color
+        // 레거시 문자열 키 fallback (기존 Mock 데이터 호환)
+        const legacyDept = LEGACY_DEPARTMENT_MAP[departmentId]
+        if (legacyDept) return legacyDept.color
+        return '#94A3B8'
+    }
+
+    // 부서 ID로 이름 조회 (레거시 문자열 키 fallback 포함)
+    const getDepartmentName = (departmentId?: string): string => {
+        if (!departmentId) return '미지정'
+        // 먼저 실제 부서 목록에서 찾기
+        const dept = departments.find(d => d.id === departmentId)
+        if (dept) return dept.name
+        // 레거시 문자열 키 fallback (기존 Mock 데이터 호환)
+        const legacyDept = LEGACY_DEPARTMENT_MAP[departmentId]
+        if (legacyDept) return legacyDept.name
+        return '미지정'
     }
 
     const loadWorkspaces = async (retryCount = 0) => {
@@ -267,12 +342,16 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         workspaces,
         loading,
         features,
+        departments,
         currentRole,
         isAdmin,
         switchWorkspace,
         createWorkspace,
         refreshWorkspaces,
+        refreshDepartments,
         isFeatureEnabled,
+        getDepartmentColor,
+        getDepartmentName,
     }
 
     return (

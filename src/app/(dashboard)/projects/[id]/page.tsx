@@ -8,6 +8,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/lib/auth-context'
+import { useWorkspace, LEGACY_DEPARTMENT_MAP } from '@/lib/workspace-context'
 import { motion } from 'framer-motion'
 import { useSocket } from '@/components/providers/socket-provider'
 import ProjectSidebar from '@/components/projects/ProjectSidebar'
@@ -86,6 +87,7 @@ export default function ProjectDetailPage() {
   const params = useParams()
   const router = useRouter()
   const { user, userProfile } = useAuth()
+  const { departments } = useWorkspace()
   const { socket, isConnected } = useSocket()
   const [project, setProject] = useState<ProjectDetail | null>(null)
   const [activities, setActivities] = useState<Activity[]>([])
@@ -270,7 +272,7 @@ export default function ProjectDetailPage() {
           startDate: newTask.startDate ? new Date(newTask.startDate) : undefined,
           dueDate: newTask.dueDate ? new Date(newTask.dueDate) : undefined,
           assigneeId: newTask.assignee || null,
-          labels: newTask.department ? [newTask.department] : [],
+          teamId: newTask.department || undefined,
           color: newTask.color
         })
 
@@ -310,7 +312,7 @@ export default function ProjectDetailPage() {
           createdBy: user.uid,
           columnId: selectedColumnId,
           order: tasks.filter(t => t.columnId === selectedColumnId).length,
-          labels: newTask.department ? [newTask.department] : [],
+          teamId: newTask.department || undefined,
           color: newTask.color
         })
 
@@ -1281,31 +1283,70 @@ export default function ProjectDetailPage() {
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">부서</label>
                 <div className="flex flex-wrap gap-2">
-                  {[
-                    { value: '', label: '선택 안함', color: 'bg-slate-100 text-slate-600' },
-                    { value: '기획', label: '기획', color: 'bg-violet-100 text-violet-700' },
-                    { value: '디자인', label: '디자인', color: 'bg-pink-100 text-pink-700' },
-                    { value: '개발', label: '개발', color: 'bg-blue-100 text-blue-700' },
-                    { value: '테스트', label: '테스트', color: 'bg-emerald-100 text-emerald-700' },
-                    { value: '마케팅', label: '마케팅', color: 'bg-amber-100 text-amber-700' },
-                    { value: '영업', label: '영업', color: 'bg-orange-100 text-orange-700' },
-                    { value: '인사', label: '인사', color: 'bg-cyan-100 text-cyan-700' },
-                    { value: '기타', label: '기타', color: 'bg-gray-100 text-gray-700' },
-                  ].map(dept => (
-                    <button
-                      key={dept.value}
-                      type="button"
-                      onClick={() => setNewTask({ ...newTask, department: dept.value })}
-                      className={cn(
-                        "px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
-                        newTask.department === dept.value
-                          ? `${dept.color} ring-2 ring-offset-1 ring-slate-400`
-                          : 'bg-white/60 text-slate-600 hover:bg-white/80'
-                      )}
-                    >
-                      {dept.label}
-                    </button>
-                  ))}
+                  {/* 선택 안함 옵션 */}
+                  <button
+                    type="button"
+                    onClick={() => setNewTask({ ...newTask, department: '' })}
+                    className={cn(
+                      "px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
+                      newTask.department === ''
+                        ? 'bg-slate-100 text-slate-600 ring-2 ring-offset-1 ring-slate-400'
+                        : 'bg-white/60 text-slate-600 hover:bg-white/80'
+                    )}
+                  >
+                    선택 안함
+                  </button>
+                  {/* 동적 부서 목록 또는 레거시 fallback */}
+                  {departments.length > 0 ? (
+                    departments.map(dept => (
+                      <button
+                        key={dept.id}
+                        type="button"
+                        onClick={() => setNewTask({ ...newTask, department: dept.id })}
+                        className={cn(
+                          "px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5",
+                          newTask.department === dept.id
+                            ? 'ring-2 ring-offset-1 ring-slate-400'
+                            : 'bg-white/60 text-slate-600 hover:bg-white/80'
+                        )}
+                        style={{
+                          backgroundColor: newTask.department === dept.id ? `${dept.color}20` : undefined,
+                          color: newTask.department === dept.id ? dept.color : undefined,
+                        }}
+                      >
+                        <span
+                          className="w-2 h-2 rounded-full"
+                          style={{ backgroundColor: dept.color }}
+                        />
+                        {dept.name}
+                      </button>
+                    ))
+                  ) : (
+                    // 레거시 fallback (부서 미설정 시)
+                    Object.entries(LEGACY_DEPARTMENT_MAP).map(([key, dept]) => (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => setNewTask({ ...newTask, department: key })}
+                        className={cn(
+                          "px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5",
+                          newTask.department === key
+                            ? 'ring-2 ring-offset-1 ring-slate-400'
+                            : 'bg-white/60 text-slate-600 hover:bg-white/80'
+                        )}
+                        style={{
+                          backgroundColor: newTask.department === key ? `${dept.color}20` : undefined,
+                          color: newTask.department === key ? dept.color : undefined,
+                        }}
+                      >
+                        <span
+                          className="w-2 h-2 rounded-full"
+                          style={{ backgroundColor: dept.color }}
+                        />
+                        {dept.name}
+                      </button>
+                    ))
+                  )}
                 </div>
               </div>
 
