@@ -1,14 +1,19 @@
 'use client'
 // =============================================================================
 // Workspace Context - CVE-CB-005 Fixed: Development-only Logging
+// Issue #4: 로그인 후 워크스페이스 리다이렉트 타이밍 문제 수정
 // =============================================================================
 
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
-import { useRouter } from 'next/navigation'
+import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react'
+import { useRouter, usePathname } from 'next/navigation'
+import { useSession } from 'next-auth/react'
 import toast from 'react-hot-toast'
 import { getWorkspaces, getWorkspaceFeatures } from '@/actions/workspace'
 
 const isDev = process.env.NODE_ENV === 'development'
+
+// 워크스페이스 생성 페이지에서는 리다이렉트하지 않음
+const EXCLUDED_PATHS = ['/workspace/create', '/login', '/register', '/forgot-password']
 
 interface WorkspaceFeatures {
     id: string
@@ -76,11 +81,33 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     const [workspaces, setWorkspaces] = useState<Workspace[]>([])
     const [features, setFeatures] = useState<WorkspaceFeatures | null>(null)
     const [loading, setLoading] = useState(true)
+    const [hasAttemptedLoad, setHasAttemptedLoad] = useState(false)
     const router = useRouter()
+    const pathname = usePathname()
+    const { status: sessionStatus } = useSession()
 
+    // 세션이 인증된 상태일 때만 워크스페이스 로드
     useEffect(() => {
-        loadWorkspaces()
-    }, [])
+        // 세션이 로딩 중이면 대기
+        if (sessionStatus === 'loading') {
+            if (isDev) console.log('[DEV] 세션 로딩 중...')
+            return
+        }
+
+        // 세션이 인증되지 않은 상태면 로딩 완료 처리
+        if (sessionStatus === 'unauthenticated') {
+            if (isDev) console.log('[DEV] 세션 없음 - 워크스페이스 로드 건너뜀')
+            setLoading(false)
+            return
+        }
+
+        // 세션이 인증된 상태면 워크스페이스 로드
+        if (sessionStatus === 'authenticated' && !hasAttemptedLoad) {
+            if (isDev) console.log('[DEV] 세션 인증됨 - 워크스페이스 로드 시작')
+            setHasAttemptedLoad(true)
+            loadWorkspaces()
+        }
+    }, [sessionStatus, hasAttemptedLoad])
 
     // features 로드 - currentWorkspace 변경 시
     useEffect(() => {
@@ -91,24 +118,24 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
     const loadFeatures = async (workspaceId: string) => {
         try {
-            if (isDev) console.log('[DEV] Loading features for workspace:', workspaceId)
+            if (isDev) console.log('[DEV] 워크스페이스 기능 로드 중:', workspaceId)
             const data = await getWorkspaceFeatures(workspaceId)
 
             if (data) {
                 if (isDev) {
-                    console.log('[DEV] Features loaded:', data)
-                    console.log('[DEV] projectEnabled:', data.projectEnabled)
-                    console.log('[DEV] hrEnabled:', data.hrEnabled)
+                    console.log('[DEV] 기능 로드 완료:', data)
+                    console.log('[DEV] 프로젝트 활성화:', data.projectEnabled)
+                    console.log('[DEV] HR 활성화:', data.hrEnabled)
                 }
                 setFeatures(data as WorkspaceFeatures)
             } else {
                 // features가 없으면 기본값 (모두 활성화)
-                if (isDev) console.log('[DEV] No features found, using defaults')
+                if (isDev) console.log('[DEV] 기능 설정 없음 - 기본값 사용')
                 setFeatures(null)
             }
         } catch {
-            // CVE-CB-005: Silent fail for feature loading
-            if (isDev) console.log('[DEV] Failed to load features')
+            // CVE-CB-005: 기능 로드 실패 시 조용히 처리
+            if (isDev) console.log('[DEV] 기능 로드 실패')
             setFeatures(null)
         }
     }
@@ -121,43 +148,69 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         return features[featureKey] as boolean
     }
 
-    const loadWorkspaces = async () => {
+    const loadWorkspaces = async (retryCount = 0) => {
+        const MAX_RETRIES = 2
+        const RETRY_DELAY = 500
+
         try {
-            if (isDev) console.log('[DEV] Loading workspaces...')
+            if (isDev) console.log('[DEV] 워크스페이스 로드 중...')
             const data = await getWorkspaces()
 
-            if (isDev) console.log('[DEV] Loaded workspaces:', data.length)
-
-            // Type assertion needed because Prisma types might slightly differ from interface
-            setWorkspaces(data as unknown as Workspace[])
+            if (isDev) console.log('[DEV] 로드된 워크스페이스 수:', data.length)
 
             // 저장된 워크스페이스 ID 가져오기
             const savedWorkspaceId = localStorage.getItem('currentWorkspaceId')
-            if (isDev) console.log('[DEV] Saved workspace ID:', savedWorkspaceId)
+            if (isDev) console.log('[DEV] 저장된 워크스페이스 ID:', savedWorkspaceId)
+
+            // 서버에서 빈 배열 반환 + localStorage에 저장된 ID가 있으면 재시도
+            if (data.length === 0 && savedWorkspaceId && retryCount < MAX_RETRIES) {
+                if (isDev) console.log(`[DEV] 워크스페이스 목록 비어있음 - 재시도 (${retryCount + 1}/${MAX_RETRIES})`)
+                setTimeout(() => loadWorkspaces(retryCount + 1), RETRY_DELAY)
+                return
+            }
+
+            // 워크스페이스 목록 설정
+            setWorkspaces(data as unknown as Workspace[])
 
             if (savedWorkspaceId && data.find((w: any) => w.id === savedWorkspaceId)) {
-                // 저장된 워크스페이스가 있으면 사용
+                // 저장된 워크스페이스가 목록에 있으면 사용
                 const workspace = data.find((w: any) => w.id === savedWorkspaceId)
-                if (isDev) console.log('[DEV] Using saved workspace')
+                if (isDev) console.log('[DEV] 저장된 워크스페이스 사용')
                 setCurrentWorkspace(workspace as unknown as Workspace)
             } else if (data.length > 0) {
-                // 없으면 첫 번째 워크스페이스 사용
-                if (isDev) console.log('[DEV] Using first workspace')
+                // 저장된 ID가 없거나 유효하지 않으면 첫 번째 워크스페이스 사용
+                if (isDev) console.log('[DEV] 첫 번째 워크스페이스 사용')
                 setCurrentWorkspace(data[0] as unknown as Workspace)
                 localStorage.setItem('currentWorkspaceId', data[0].id)
             } else {
-                // 워크스페이스가 하나도 없으면 생성 페이지로
-                if (isDev) console.log('[DEV] No workspaces found, redirecting')
-                router.push('/workspace/create')
+                // 워크스페이스가 하나도 없는 경우
+                if (isDev) console.log('[DEV] 워크스페이스 없음')
+
+                // 제외된 경로에서는 리다이렉트하지 않음
+                const isExcludedPath = EXCLUDED_PATHS.some(path => pathname?.startsWith(path))
+                if (!isExcludedPath) {
+                    if (isDev) console.log('[DEV] 워크스페이스 생성 페이지로 이동')
+                    router.push('/workspace/create')
+                }
             }
         } catch (error) {
-            // CVE-CB-005: Silent fail for workspace loading
-            if (isDev) console.log('[DEV] Failed to load workspaces', error)
+            // CVE-CB-005: 에러 발생 시 개발 환경에서만 로깅
+            if (isDev) console.log('[DEV] 워크스페이스 로드 실패', error)
+
+            // 에러 발생 시에도 localStorage에 저장된 ID가 있으면 재시도
+            const savedWorkspaceId = localStorage.getItem('currentWorkspaceId')
+            if (savedWorkspaceId && retryCount < MAX_RETRIES) {
+                if (isDev) console.log(`[DEV] 에러 후 재시도 (${retryCount + 1}/${MAX_RETRIES})`)
+                setTimeout(() => loadWorkspaces(retryCount + 1), RETRY_DELAY)
+                return
+            }
+
             toast.error('워크스페이스를 불러오는데 실패했습니다')
-        } finally {
-            if (isDev) console.log('[DEV] Loading complete')
-            setLoading(false)
         }
+
+        // 로딩 완료 처리 (재시도 중에는 return으로 빠져나감)
+        if (isDev) console.log('[DEV] 로딩 완료')
+        setLoading(false)
     }
 
     const switchWorkspace = async (workspaceId: string) => {
@@ -193,14 +246,15 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
             toast.success('워크스페이스가 생성되었습니다')
             return workspace
         } catch (error) {
-            // CVE-CB-005: Development-only error logging
-            if (isDev) console.log('[DEV] Failed to create workspace')
+            // CVE-CB-005: 개발 환경에서만 에러 로깅
+            if (isDev) console.log('[DEV] 워크스페이스 생성 실패')
             toast.error('워크스페이스 생성에 실패했습니다')
             throw error
         }
     }
 
     const refreshWorkspaces = async () => {
+        setHasAttemptedLoad(false)
         await loadWorkspaces()
     }
 
