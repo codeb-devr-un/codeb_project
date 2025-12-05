@@ -110,10 +110,14 @@ export default function Sidebar() {
         const response = await fetch(`/api/projects?workspaceId=${currentWorkspace.id}`)
         if (response.ok) {
           const data = await response.json()
-          setProjects(data)
+          setProjects(Array.isArray(data) ? data : [])
+        } else {
+          // 401/403 에러 시 빈 배열로 처리 (인증/권한 문제)
+          setProjects([])
         }
       } catch (error) {
         console.error('Failed to fetch projects:', error)
+        setProjects([])
       }
     }
 

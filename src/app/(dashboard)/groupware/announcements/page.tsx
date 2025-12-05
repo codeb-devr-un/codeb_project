@@ -70,11 +70,20 @@ export default function AnnouncementsPage() {
         try {
             const params = currentWorkspace ? `?workspaceId=${currentWorkspace.id}` : ''
             const response = await fetch(`/api/announcements${params}`)
+
+            if (!response.ok) {
+                // 인증 에러 등 API 에러 처리
+                setAnnouncements([])
+                return
+            }
+
             const data = await response.json()
-            setAnnouncements(data)
+            // API 응답이 배열인지 확인
+            setAnnouncements(Array.isArray(data) ? data : [])
         } catch (error) {
             console.error('Failed to load announcements:', error)
             toast.error('공지사항을 불러오는데 실패했습니다')
+            setAnnouncements([])
         } finally {
             setLoading(false)
         }
