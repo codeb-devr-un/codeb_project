@@ -272,7 +272,7 @@ export default function ProjectDetailPage() {
           startDate: newTask.startDate ? new Date(newTask.startDate) : undefined,
           dueDate: newTask.dueDate ? new Date(newTask.dueDate) : undefined,
           assigneeId: newTask.assignee || null,
-          teamId: newTask.department || undefined,
+          teamId: newTask.department || null,  // 빈 문자열이면 null로 부서 해제
           color: newTask.color
         })
 
@@ -1058,7 +1058,7 @@ export default function ProjectDetailPage() {
                     dueDate: task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : '',
                     startDate: task.startDate ? new Date(task.startDate).toISOString().split('T')[0] : '',
                     priority: task.priority.toLowerCase() as 'low' | 'medium' | 'high' | 'urgent',
-                    department: task.labels?.[0] || '',
+                    department: (task as any).department || (task as any).teamId || '',
                     color: task.color || '#a3e635'
                   })
                 }}
