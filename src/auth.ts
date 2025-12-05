@@ -81,6 +81,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               },
             })
           } else {
+            // 신규 사용자 생성 (워크스페이스 자동 추가 없음 - /workspace/create에서 선택)
             dbUser = await prisma.user.create({
               data: {
                 email: user.email,
@@ -90,22 +91,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               },
             })
             devLog(`[Auth] User created: ${dbUser.id}`)
-
-            // 신규 사용자: 기본 워크스페이스에 자동 추가
-            const defaultWorkspace = await prisma.workspace.findFirst({
-              orderBy: { createdAt: 'asc' },
-            })
-
-            if (defaultWorkspace) {
-              await prisma.workspaceMember.create({
-                data: {
-                  workspaceId: defaultWorkspace.id,
-                  userId: dbUser.id,
-                  role: 'member',
-                },
-              })
-              devLog(`[Auth] User added to default workspace: ${defaultWorkspace.id}`)
-            }
           }
 
           // 초대장 처리

@@ -6,9 +6,9 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
-import { useSession } from 'next-auth/react'
 import toast from 'react-hot-toast'
 import { getWorkspaces, getWorkspaceFeatures } from '@/actions/workspace'
+import { useAuth } from './auth-context'
 
 // 부서(팀) 타입
 export interface Department {
@@ -108,30 +108,33 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     const [hasAttemptedLoad, setHasAttemptedLoad] = useState(false)
     const router = useRouter()
     const pathname = usePathname()
-    const { status: sessionStatus } = useSession()
+    const { user, loading: authLoading } = useAuth()
 
-    // 세션이 인증된 상태일 때만 워크스페이스 로드
+    // 사용자 인증 상태에 따라 워크스페이스 로드
     useEffect(() => {
-        // 세션이 로딩 중이면 대기
-        if (sessionStatus === 'loading') {
-            if (isDev) console.log('[DEV] 세션 로딩 중...')
+        // auth-context가 로딩 중이면 대기
+        if (authLoading) {
+            if (isDev) console.log('[DEV] 인증 로딩 중...')
             return
         }
 
-        // 세션이 인증되지 않은 상태면 로딩 완료 처리
-        if (sessionStatus === 'unauthenticated') {
-            if (isDev) console.log('[DEV] 세션 없음 - 워크스페이스 로드 건너뜀')
+        // 사용자가 없으면 로딩 완료 처리 및 localStorage 정리
+        if (!user) {
+            if (isDev) console.log('[DEV] 사용자 없음 - 워크스페이스 로드 건너뜀')
+            localStorage.removeItem('currentWorkspaceId')
+            setCurrentWorkspace(null)
+            setWorkspaces([])
             setLoading(false)
             return
         }
 
-        // 세션이 인증된 상태면 워크스페이스 로드
-        if (sessionStatus === 'authenticated' && !hasAttemptedLoad) {
-            if (isDev) console.log('[DEV] 세션 인증됨 - 워크스페이스 로드 시작')
+        // 사용자가 있고 아직 로드 시도 안했으면 워크스페이스 로드
+        if (user && !hasAttemptedLoad) {
+            if (isDev) console.log('[DEV] 사용자 인증됨 - 워크스페이스 로드 시작:', user.email)
             setHasAttemptedLoad(true)
             loadWorkspaces()
         }
-    }, [sessionStatus, hasAttemptedLoad])
+    }, [user, authLoading, hasAttemptedLoad])
 
     // features 및 departments 로드 - currentWorkspace 변경 시
     useEffect(() => {
@@ -260,6 +263,10 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
             } else {
                 // 워크스페이스가 하나도 없는 경우
                 if (isDev) console.log('[DEV] 워크스페이스 없음')
+
+                // localStorage 정리
+                localStorage.removeItem('currentWorkspaceId')
+                setCurrentWorkspace(null)
 
                 // 제외된 경로에서는 리다이렉트하지 않음
                 const isExcludedPath = EXCLUDED_PATHS.some(path => pathname?.startsWith(path))
