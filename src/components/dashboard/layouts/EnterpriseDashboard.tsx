@@ -34,6 +34,7 @@ interface EnterpriseDashboardProps {
     boardPosts: any[]
     recentActivities?: Activity[]
     getGreeting: () => string
+    employeeBirthDate?: string | null
 }
 
 export function EnterpriseDashboard({
@@ -46,11 +47,12 @@ export function EnterpriseDashboard({
     announcements,
     boardPosts,
     recentActivities = [],
-    getGreeting
+    getGreeting,
+    employeeBirthDate
 }: EnterpriseDashboardProps) {
     return (
         <div className="max-w-7xl mx-auto w-full space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 p-6">
-            <BirthdayBanner userProfile={userProfile} />
+            <BirthdayBanner userProfile={userProfile} birthDate={employeeBirthDate} />
 
             {/* Header Section */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">

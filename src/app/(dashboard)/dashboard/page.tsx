@@ -46,6 +46,7 @@ export default function DashboardPage() {
     wind: 12
   })
   const [todayAttendance, setTodayAttendance] = useState<any>(null)
+  const [employeeBirthDate, setEmployeeBirthDate] = useState<string | null>(null)
   const [announcements, setAnnouncements] = useState<Array<{
     id: string
     title: string
@@ -170,6 +171,22 @@ export default function DashboardPage() {
     }
   }, [userProfile?.uid])
 
+  // 직원 생일 정보 로드
+  const loadEmployeeBirthDate = useCallback(async () => {
+    if (!currentWorkspace?.id) return
+    try {
+      const response = await fetch('/api/employees/me', {
+        headers: { 'x-workspace-id': currentWorkspace.id }
+      })
+      if (response.ok) {
+        const data = await response.json()
+        setEmployeeBirthDate(data.employee?.birthDate || null)
+      }
+    } catch (error) {
+      console.error('Failed to load employee birth date:', error)
+    }
+  }, [currentWorkspace?.id])
+
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000)
     return () => clearInterval(timer)
@@ -194,6 +211,7 @@ export default function DashboardPage() {
         loadAnnouncements()
         loadBoardPosts()
         loadRecentActivities()
+        loadEmployeeBirthDate()
         // HR 통계와 출근 현황은 HR_ONLY 또는 ENTERPRISE 타입에서만 로드
         if (currentWorkspace.type === 'HR_ONLY' || currentWorkspace.type === 'ENTERPRISE') {
           loadHRStats()
@@ -203,7 +221,7 @@ export default function DashboardPage() {
         setLoading(false)
       }
     }
-  }, [userProfile, currentWorkspace, workspaceLoading, loadAttendance, loadAnnouncements, loadBoardPosts, loadRecentActivities, loadHRStats, loadAttendanceList])
+  }, [userProfile, currentWorkspace, workspaceLoading, loadAttendance, loadAnnouncements, loadBoardPosts, loadRecentActivities, loadHRStats, loadAttendanceList, loadEmployeeBirthDate])
 
   const getGreeting = () => {
     const hour = currentTime.getHours()
@@ -276,6 +294,7 @@ export default function DashboardPage() {
       boardPosts={boardPosts}
       recentActivities={recentActivities}
       getGreeting={getGreeting}
+      employeeBirthDate={employeeBirthDate}
     />
   )
 }

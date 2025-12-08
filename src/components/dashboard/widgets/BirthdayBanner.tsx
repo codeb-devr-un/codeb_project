@@ -14,21 +14,17 @@ interface ExtendedUser {
 
 interface BirthdayBannerProps {
     userProfile: ExtendedUser | null
+    birthDate?: string | null
 }
 
-export function BirthdayBanner({ userProfile }: BirthdayBannerProps) {
-    // 🎂 생일 체크 - 테스트를 위해 오늘이 생일인 것처럼 설정
+export function BirthdayBanner({ userProfile, birthDate }: BirthdayBannerProps) {
+    // 🎂 생일 체크 - DB의 birthDate와 오늘 날짜의 월/일 비교
     const isBirthday = useMemo(() => {
-        // TODO: 실제 배포시에는 userProfile?.birthday와 오늘 날짜의 월/일 비교로 변경
-        // const userBirthday = userProfile?.birthday // 예: '1990-11-30' 또는 Date 객체
-        // if (!userBirthday) return false
-        // const today = new Date()
-        // const birthDate = new Date(userBirthday)
-        // return today.getMonth() === birthDate.getMonth() && today.getDate() === birthDate.getDate()
-
-        // 🧪 테스트 모드: 항상 생일로 표시
-        return true
-    }, [])
+        if (!birthDate) return false
+        const today = new Date()
+        const birth = new Date(birthDate)
+        return today.getMonth() === birth.getMonth() && today.getDate() === birth.getDate()
+    }, [birthDate])
 
     // 🎆 전체 화면 폭죽 애니메이션 상태 (로그인 시 1회만)
     const [showFireworks, setShowFireworks] = useState(false)
