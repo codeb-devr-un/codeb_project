@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "prisma generate && next dev",
+    "postinstall": "prisma generate",
     "dev:all": "node scripts/dev-all.js",
     "build": "next build",
     "build:production": "next build || true",
