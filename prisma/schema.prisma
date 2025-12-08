@@ -206,6 +206,8 @@ model Workspace {
   employees          Employee[]
   workSchedules      WorkSchedule[]
   payrollRecords     PayrollRecord[]
+  leaveRequests      LeaveRequest[]
+  leaveBalances      LeaveBalance[]
 }
 
 model WorkspaceMember {
@@ -956,6 +958,8 @@ model Employee {
   experiences          EmployeeExperience[]
   educations           EmployeeEducation[]
   certificates         EmployeeCertificate[]
+  leaveRequests        LeaveRequest[]
+  leaveBalances        LeaveBalance[]
 
   @@unique([workspaceId, email])
   @@unique([workspaceId, employeeNumber])
@@ -1094,7 +1098,87 @@ model WorkScheduleEntry {
 }
 
 // ============================================
-// Phase 12: HRIS - Payroll Records
+// Phase 12: HRIS - Leave Request (휴가 관리)
+// ============================================
+
+enum LeaveType {
+  ANNUAL       // 연차
+  SICK         // 병가
+  HALF_AM      // 오전 반차
+  HALF_PM      // 오후 반차
+  SPECIAL      // 특별휴가
+  MATERNITY    // 출산휴가
+  CHILDCARE    // 육아휴직
+  OFFICIAL     // 공가
+}
+
+enum LeaveStatus {
+  PENDING      // 대기중
+  APPROVED     // 승인
+  REJECTED     // 반려
+  CANCELLED    // 취소
+}
+
+model LeaveRequest {
+  id          String      @id @default(uuid())
+  workspaceId String
+  employeeId  String
+
+  type        LeaveType   @default(ANNUAL)
+  startDate   DateTime
+  endDate     DateTime
+  days        Float       @default(1)  // 0.5 for half-day
+  reason      String?
+
+  status      LeaveStatus @default(PENDING)
+  approvedBy  String?     // 승인/반려 처리한 관리자 ID
+  approvedAt  DateTime?
+  rejectReason String?    // 반려 사유
+
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  workspace   Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  employee    Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, status])
+  @@index([employeeId, status])
+  @@index([workspaceId, startDate])
+}
+
+// 직원별 연차 잔여 현황
+model LeaveBalance {
+  id          String   @id @default(uuid())
+  workspaceId String
+  employeeId  String
+  year        Int      // 연도 (예: 2025)
+
+  // 연차
+  annualTotal     Float @default(15)  // 총 연차
+  annualUsed      Float @default(0)   // 사용한 연차
+  annualCarryOver Float @default(0)   // 이월 연차
+
+  // 병가
+  sickTotal       Float @default(3)   // 총 병가
+  sickUsed        Float @default(0)   // 사용한 병가
+
+  // 특별휴가 (결혼, 경조사 등)
+  specialTotal    Float @default(0)
+  specialUsed     Float @default(0)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  employee    Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, employeeId, year])
+  @@index([workspaceId, year])
+  @@index([employeeId, year])
+}
+
+// ============================================
+// Phase 13: HRIS - Payroll Records
 // ============================================
 
 model PayrollRecord {

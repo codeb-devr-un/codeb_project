@@ -145,11 +145,23 @@ export interface LeaveRequest {
   type: string
   startDate: string
   endDate: string
+  days?: number
   reason?: string
   status: 'pending' | 'approved' | 'rejected'
   approvedBy?: string
   approvedAt?: string
   createdAt: string
+}
+
+// 관리자용 휴가 신청 정보 (신청자 정보 포함)
+export interface LeaveRequestWithEmployee extends LeaveRequest {
+  employee: {
+    id: string
+    name: string
+    department?: string
+    position?: string
+    profileImage?: string
+  }
 }
 
 export interface LeaveBalance {

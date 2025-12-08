@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import { LeaveRequest, LeaveBalance } from '@/types/hr'
+import AdminLeaveManagement from './AdminLeaveManagement'
 
 interface LeaveTabProps {
   userId: string
@@ -43,8 +44,6 @@ export default function LeaveTab({ userId, workspaceId, isAdmin }: LeaveTabProps
     endDate: '',
     reason: ''
   })
-  const [pendingRequests, setPendingRequests] = useState<LeaveRequest[]>([])
-
   useEffect(() => {
     loadLeaveData()
   }, [userId, workspaceId])
@@ -66,11 +65,6 @@ export default function LeaveTab({ userId, workspaceId, isAdmin }: LeaveTabProps
           sickUsed: 0,
           sickRemaining: 10
         })
-
-        // 관리자용: 승인 대기 요청
-        if (isAdmin && data.pendingRequests) {
-          setPendingRequests(data.pendingRequests)
-        }
       }
     } catch (e) {
       console.error('Failed to load leave data:', e)
@@ -122,27 +116,6 @@ export default function LeaveTab({ userId, workspaceId, isAdmin }: LeaveTabProps
       }
     } catch (e) {
       toast.error('휴가 신청 중 오류가 발생했습니다')
-    }
-  }
-
-  const handleApprove = async (requestId: string, approved: boolean) => {
-    try {
-      const res = await fetch(`/api/leave/${requestId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-id': userId,
-          'x-workspace-id': workspaceId
-        },
-        body: JSON.stringify({ status: approved ? 'approved' : 'rejected' })
-      })
-
-      if (res.ok) {
-        toast.success(approved ? '승인되었습니다' : '반려되었습니다')
-        loadLeaveData()
-      }
-    } catch (e) {
-      toast.error('처리 중 오류가 발생했습니다')
     }
   }
 
@@ -251,55 +224,13 @@ export default function LeaveTab({ userId, workspaceId, isAdmin }: LeaveTabProps
         </CardContent>
       </Card>
 
-      {/* 관리자: 승인 대기 목록 */}
-      {isAdmin && pendingRequests.length > 0 && (
-        <Card className="bg-white/60 backdrop-blur-xl border-white/40 shadow-sm rounded-3xl border-l-4 border-l-yellow-400">
-          <CardHeader>
-            <CardTitle className="text-slate-900 flex items-center gap-2">
-              <Clock className="w-5 h-5 text-yellow-600" />
-              승인 대기 ({pendingRequests.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {pendingRequests.map(request => (
-                <div
-                  key={request.id}
-                  className="flex items-center justify-between p-4 rounded-xl bg-white/50 border border-white/60"
-                >
-                  <div>
-                    <p className="text-slate-900 font-medium">{getLeaveTypeLabel(request.type)}</p>
-                    <p className="text-slate-600 text-sm">
-                      {request.startDate} ~ {request.endDate}
-                    </p>
-                    {request.reason && (
-                      <p className="text-slate-500 text-xs mt-1">{request.reason}</p>
-                    )}
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="text-red-600 border-red-200 hover:bg-red-50"
-                      onClick={() => handleApprove(request.id, false)}
-                    >
-                      <XCircle className="w-4 h-4 mr-1" />
-                      반려
-                    </Button>
-                    <Button
-                      size="sm"
-                      className="bg-lime-500 text-white hover:bg-lime-600"
-                      onClick={() => handleApprove(request.id, true)}
-                    >
-                      <CheckCircle className="w-4 h-4 mr-1" />
-                      승인
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+      {/* 관리자: 전체 휴가 신청 관리 */}
+      {isAdmin && (
+        <AdminLeaveManagement
+          workspaceId={workspaceId}
+          userId={userId}
+          onUpdate={loadLeaveData}
+        />
       )}
 
       {/* 휴가 신청 내역 */}
