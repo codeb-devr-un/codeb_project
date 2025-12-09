@@ -4,6 +4,8 @@ import { useAuth } from '@/lib/auth-context'
 import { getProject, updateProject, deleteProject as deleteProjectAction } from '@/actions/project'
 import { toast } from 'react-hot-toast'
 
+const isDev = process.env.NODE_ENV === 'development'
+
 export interface ProjectDetail {
   id: string
   name: string
@@ -91,7 +93,9 @@ export function useProject(projectId: string | undefined) {
         router.push('/projects')
       }
     } catch (error) {
-      console.error('Error fetching project:', error)
+      if (isDev) {
+        console.error('Error fetching project:', error)
+      }
       toast.error('프로젝트 정보를 불러오는데 실패했습니다.')
     } finally {
       setLoading(false)
@@ -114,7 +118,9 @@ export function useProject(projectId: string | undefined) {
         throw new Error('Update failed')
       }
     } catch (error) {
-      console.error('Error updating project status:', error)
+      if (isDev) {
+        console.error('Error updating project status:', error)
+      }
       toast.error('상태 변경 실패')
     }
   }
@@ -133,7 +139,9 @@ export function useProject(projectId: string | undefined) {
         throw new Error('Delete failed')
       }
     } catch (error) {
-      console.error('Error deleting project:', error)
+      if (isDev) {
+        console.error('Error deleting project:', error)
+      }
       toast.error('삭제 실패')
     }
   }

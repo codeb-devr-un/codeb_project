@@ -1,0 +1,32 @@
+# Staging Dockerfile - Uses pre-built standalone
+FROM node:20-slim AS runner
+WORKDIR /app
+
+ENV NODE_ENV production
+ENV NEXT_TELEMETRY_DISABLED 1
+
+RUN apt-get update && apt-get install -y openssl ca-certificates curl && rm -rf /var/lib/apt/lists/*
+
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
+# Copy pre-built standalone and static files
+COPY .next/standalone ./
+COPY .next/static ./.next/static
+COPY public ./public
+COPY prisma ./prisma
+
+# Install specific Prisma version for migrations (match local version)
+RUN npm install @prisma/client@5.22.0 prisma@5.22.0 --save-prod
+
+# Set permissions
+RUN chown -R nextjs:nodejs /app
+
+USER nextjs
+
+EXPOSE 3000
+
+ENV PORT 3000
+ENV HOSTNAME "0.0.0.0"
+
+CMD ["node", "server.js"]

@@ -34,6 +34,8 @@ export type WorkspaceRole = 'admin' | 'manager' | 'member' | 'viewer'
 // CVE-CB-012: Secure Token Generation (Cryptographic)
 // =============================================================================
 
+const isDev = process.env.NODE_ENV === 'development'
+
 /**
  * Generate cryptographically secure random token
  * Replaces Math.random() with crypto.randomBytes()
@@ -96,7 +98,7 @@ export async function authenticateRequest(): Promise<AuthenticatedUser | null> {
     }
   } catch (error) {
     // CVE-CB-005: Development-only logging for security module internals
-    if (process.env.NODE_ENV === 'development') {
+    if (isDev) {
       console.error('[Security] Authentication failed:', error)
     }
     return null
@@ -159,7 +161,7 @@ export async function checkWorkspaceRole(
     return { hasAccess, userRole }
   } catch (error) {
     // CVE-CB-005: Development-only logging for security module internals
-    if (process.env.NODE_ENV === 'development') {
+    if (isDev) {
       console.error('[Security] Role check failed:', error)
     }
     return { hasAccess: false }
@@ -276,7 +278,7 @@ export async function checkRateLimit(
   } catch (error) {
     // CVE-CB-005: Development-only logging for security module internals
     // If Redis fails, allow the request but log in development
-    if (process.env.NODE_ENV === 'development') {
+    if (isDev) {
       console.error('[Security] Rate limit check failed:', error)
     }
     return { allowed: true, remaining: config.maxRequests, resetAt: now + config.windowMs }
@@ -325,7 +327,7 @@ export function validateOrigin(request: NextRequest): boolean {
   const referer = request.headers.get('referer')
 
   // In development, allow all origins
-  if (process.env.NODE_ENV === 'development') {
+  if (isDev) {
     return true
   }
 
@@ -432,7 +434,7 @@ function sanitizeForLogging(obj: unknown): unknown {
  */
 export const secureLogger = {
   debug(message: string, context?: LogContext) {
-    if (process.env.NODE_ENV === 'development') {
+    if (isDev) {
       console.debug(`[DEBUG] ${message}`, sanitizeForLogging(context))
     }
   },
@@ -450,7 +452,7 @@ export const secureLogger = {
       name: error.name,
       message: error.message,
       // Only include stack in development
-      ...(process.env.NODE_ENV === 'development' ? { stack: error.stack } : {}),
+      ...(isDev ? { stack: error.stack } : {}),
     } : undefined
 
     const sanitized = sanitizeForLogging(context)

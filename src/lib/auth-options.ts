@@ -25,12 +25,12 @@ export const authOptions: NextAuthOptions = {
             },
             async authorize(credentials) {
                 if (!credentials?.email || !credentials?.password) {
-                    console.log('[Auth] Missing credentials')
+                    if (isDev) console.log('[Auth] Missing credentials')
                     return null
                 }
 
                 try {
-                    console.log(`[Auth] Attempting login for: ${credentials.email}`)
+                    if (isDev) console.log(`[Auth] Attempting login for: ${credentials.email}`)
 
                     // Direct database lookup instead of API call to avoid loops
                     const user = await prisma.user.findUnique({
@@ -39,13 +39,13 @@ export const authOptions: NextAuthOptions = {
                     })
 
                     if (!user) {
-                        console.log(`[Auth] User not found: ${credentials.email}`)
+                        if (isDev) console.log(`[Auth] User not found: ${credentials.email}`)
                         return null
                     }
 
                     // Note: In a real production app, verify password with bcrypt
                     // For development/testing, we accept any password for seeded users
-                    console.log(`[Auth] User authenticated: ${user.email}`)
+                    if (isDev) console.log(`[Auth] User authenticated: ${user.email}`)
 
                     return {
                         id: user.id,
@@ -55,7 +55,7 @@ export const authOptions: NextAuthOptions = {
                         image: user.avatar,
                     }
                 } catch (error) {
-                    console.error(`[Auth] Authorize error:`, error)
+                    if (isDev) console.error(`[Auth] Authorize error:`, error)
                     return null
                 }
             }
@@ -139,7 +139,7 @@ export const authOptions: NextAuthOptions = {
         },
         async redirect({ url, baseUrl }) {
             // 디버그 로그
-            if (process.env.NODE_ENV === 'development') {
+            if (isDev) {
                 console.log('[Auth Redirect] url:', url, 'baseUrl:', baseUrl)
             }
 

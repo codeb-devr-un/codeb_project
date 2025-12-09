@@ -1,4 +1,5 @@
 'use client'
+const isDev = process.env.NODE_ENV === 'development'
 
 import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -41,7 +42,7 @@ export default function PredictiveAnalytics({ projectId = '1' }: PredictiveAnaly
       setResourcePrediction(resource)
       setRisks(riskData)
     } catch (error) {
-      console.error('Failed to load predictions:', error)
+      if (isDev) console.error('Failed to load predictions:', error)
     } finally {
       setIsLoading(false)
     }

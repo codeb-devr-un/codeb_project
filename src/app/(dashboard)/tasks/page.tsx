@@ -40,6 +40,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import KanbanBoardDnD from '@/components/kanban/KanbanBoardDnD'
 
+const isDev = process.env.NODE_ENV === 'development'
+
 // ===========================================
 // Glass Morphism Tasks Page
 // ===========================================
@@ -103,19 +105,19 @@ export default function TasksPage() {
     if (!userProfile || !currentWorkspace) return
 
     try {
-      console.log('[TasksPage] Loading data for workspace:', currentWorkspace.id)
+      if (isDev) console.log('[TasksPage] Loading data for workspace:', currentWorkspace.id)
       const [tasksData, projectsData] = await Promise.all([
         getAllTasks(userProfile.uid, currentWorkspace.id),
         getProjects(userProfile.uid, currentWorkspace.id)
       ])
 
-      console.log('[TasksPage] Loaded tasks:', tasksData.length)
-      console.log('[TasksPage] Loaded projects:', projectsData.length)
+      if (isDev) console.log('[TasksPage] Loaded tasks:', tasksData.length)
+      if (isDev) console.log('[TasksPage] Loaded projects:', projectsData.length)
 
       setTasks(tasksData as unknown as TaskType[])
       setProjects(projectsData)
     } catch (error) {
-      console.error('Error loading tasks data:', error)
+      if (isDev) console.error('Error loading tasks data:', error)
       toast.error('데이터를 불러오는데 실패했습니다.')
     } finally {
       setLoading(false)
@@ -130,7 +132,7 @@ export default function TasksPage() {
         try {
           setTrashedTasks(JSON.parse(stored))
         } catch (e) {
-          console.error('Failed to parse trash data:', e)
+          if (isDev) console.error('Failed to parse trash data:', e)
         }
       }
     }
@@ -177,7 +179,7 @@ export default function TasksPage() {
         throw new Error('Create failed')
       }
     } catch (error) {
-      console.error('[TasksPage] Error creating task:', error)
+      if (isDev) console.error('[TasksPage] Error creating task:', error)
       toast.error('작업 생성 실패')
     } finally {
       setIsCreating(false)
@@ -194,7 +196,7 @@ export default function TasksPage() {
         throw new Error('Update failed')
       }
     } catch (error) {
-      console.error('Error updating task:', error)
+      if (isDev) console.error('Error updating task:', error)
       toast.error('상태 업데이트 실패')
     }
   }
@@ -241,7 +243,7 @@ export default function TasksPage() {
         throw new Error('Delete failed')
       }
     } catch (error) {
-      console.error('Error deleting task:', error)
+      if (isDev) console.error('Error deleting task:', error)
       toast.error('삭제 실패')
     }
   }
@@ -256,7 +258,7 @@ export default function TasksPage() {
       saveTrashedTasks([])
       toast.success('휴지통을 비웠습니다.')
     } catch (error) {
-      console.error('Error emptying trash:', error)
+      if (isDev) console.error('Error emptying trash:', error)
       toast.error('휴지통 비우기 실패')
     }
   }
@@ -379,7 +381,7 @@ export default function TasksPage() {
         throw new Error('Update failed')
       }
     } catch (error) {
-      console.error('Error updating task:', error)
+      if (isDev) console.error('Error updating task:', error)
       toast.error('수정 실패')
     }
   }
@@ -410,7 +412,7 @@ export default function TasksPage() {
       await Promise.all(updates)
       toast.success('작업 상태가 업데이트되었습니다.')
     } catch (error) {
-      console.error('Failed to update tasks:', error)
+      if (isDev) console.error('Failed to update tasks:', error)
       toast.error('작업 업데이트 실패')
       loadData() // Revert on error
     }

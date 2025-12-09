@@ -127,11 +127,15 @@ type WorkspaceType = keyof typeof WORKSPACE_FEATURE_PRESETS
 //   { name: '운영팀', color: '#10B981', order: 3 },
 // ]
 
+const isDev = process.env.NODE_ENV === 'development'
+
 // 사용자의 워크스페이스 목록 조회
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    console.log('[DEBUG] Session in GET /api/workspaces:', JSON.stringify(session, null, 2))
+    if (isDev) {
+      console.log('[DEBUG] Session in GET /api/workspaces:', JSON.stringify(session, null, 2))
+    }
 
     if (!session?.user?.email) {
       // CVE-CB-005 Fix: No sensitive data in logs
@@ -183,7 +187,9 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    console.log('[DEBUG] Session in POST /api/workspaces:', JSON.stringify(session, null, 2))
+    if (isDev) {
+      console.log('[DEBUG] Session in POST /api/workspaces:', JSON.stringify(session, null, 2))
+    }
 
     if (!session?.user?.email) {
       return createErrorResponse('Unauthorized', 401, 'AUTH_REQUIRED')

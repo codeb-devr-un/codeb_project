@@ -1,0 +1,46 @@
+[Unit]
+Description=WorkB CMS Staging Container
+After=network-online.target
+Wants=network-online.target
+After=workb-cms-postgres.service
+After=workb-cms-redis.service
+
+[Container]
+ContainerName=workb-cms-staging
+Image=ghcr.io/codeb-devr-un/workb-cms:staging
+AutoUpdate=registry
+
+# Port mapping (Staging uses different port)
+PublishPort=3201:3000
+
+# Environment
+Environment=NODE_ENV=staging
+Environment=PORT=3000
+Environment=HOSTNAME=0.0.0.0
+
+# Environment file with secrets
+EnvironmentFile=/etc/containers/systemd/workb-cms-staging.env
+
+# Health check
+HealthCmd=curl -f http://localhost:3000/api/health || exit 1
+HealthInterval=30s
+HealthTimeout=10s
+HealthRetries=3
+HealthStartPeriod=40s
+
+# Resource limits (staging uses less resources)
+PodmanArgs=--memory=1g --cpus=1
+
+# Network
+Network=workb-network
+
+# Logging
+LogDriver=journald
+
+[Service]
+Restart=always
+RestartSec=10
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target default.target

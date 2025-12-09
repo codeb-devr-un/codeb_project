@@ -1,4 +1,5 @@
 'use client'
+const isDev = process.env.NODE_ENV === 'development'
 
 import { useState } from 'react'
 import { WorkspaceType, BusinessType } from '@prisma/client'
@@ -92,7 +93,7 @@ export function WorkspaceOnboardingFlow({
       })
       setCurrentStep('complete')
     } catch (error) {
-      console.error('Onboarding failed:', error)
+      if (isDev) console.error('Onboarding failed:', error)
     } finally {
       setIsSubmitting(false)
     }

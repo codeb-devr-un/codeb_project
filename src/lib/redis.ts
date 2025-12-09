@@ -37,6 +37,8 @@ const getRedisConfig = (): RedisConfig => {
     }
 }
 
+const isDev = process.env.NODE_ENV === 'development'
+
 const createRedisClient = (): Redis | Cluster => {
     const config = getRedisConfig()
 
@@ -45,7 +47,7 @@ const createRedisClient = (): Redis | Cluster => {
         maxRetriesPerRequest: config.maxRetries,
         retryStrategy: (times: number) => {
             if (times > config.maxRetries) {
-                if (process.env.NODE_ENV === 'development') {
+                if (isDev) {
                     console.error(`[DEV] Redis: Max retries exceeded`)
                 }
                 return null
@@ -61,7 +63,7 @@ const createRedisClient = (): Redis | Cluster => {
     // Cluster Mode (Production - 100K+ users)
     if (config.mode === 'cluster' && config.nodes) {
         // CVE-CB-005: Development-only startup logging
-        if (process.env.NODE_ENV === 'development') {
+        if (isDev) {
             console.log('[DEV] Redis: Initializing Cluster mode...')
         }
         return new Cluster(config.nodes, {
@@ -80,7 +82,7 @@ const createRedisClient = (): Redis | Cluster => {
 
     // Sentinel Mode (High Availability)
     if (config.mode === 'sentinel' && config.sentinels) {
-        if (process.env.NODE_ENV === 'development') {
+        if (isDev) {
             console.log('[DEV] Redis: Initializing Sentinel mode...')
         }
         return new Redis({
@@ -93,7 +95,7 @@ const createRedisClient = (): Redis | Cluster => {
     }
 
     // Single Node Mode (Development)
-    if (process.env.NODE_ENV === 'development') {
+    if (isDev) {
         console.log('[DEV] Redis: Initializing Single node mode...')
     }
     if (process.env.REDIS_URL) {

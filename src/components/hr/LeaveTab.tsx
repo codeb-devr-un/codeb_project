@@ -1,4 +1,5 @@
 'use client'
+const isDev = process.env.NODE_ENV === 'development'
 
 import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -67,7 +68,7 @@ export default function LeaveTab({ userId, workspaceId, isAdmin }: LeaveTabProps
         })
       }
     } catch (e) {
-      console.error('Failed to load leave data:', e)
+      if (isDev) console.error('Failed to load leave data:', e)
       // 기본값 설정
       setLeaveBalance({
         annualTotal: 15,

@@ -1,4 +1,5 @@
 'use client'
+const isDev = process.env.NODE_ENV === 'development'
 
 import React, { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
@@ -63,7 +64,7 @@ export default function ProjectInviteBanner({ projectId, isAdmin = false, onAcce
                     setMyInvitation(data)
                 }
             } catch (err) {
-                console.error('Failed to fetch my invitation:', err)
+      if (isDev) console.error('Failed to fetch my invitation:', err)
             } finally {
                 setLoading(false)
             }

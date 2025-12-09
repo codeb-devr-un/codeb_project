@@ -14,6 +14,8 @@ import { addActivity } from '@/actions/activity'
 import { toast } from 'react-hot-toast'
 import { Loader2 } from 'lucide-react'
 
+const isDev = process.env.NODE_ENV === 'development'
+
 // 기본 칸반 컬럼 설정
 const DEFAULT_COLUMNS = [
   { id: 'todo', title: '할 일', color: '#ef4444', limit: 10 },
@@ -98,7 +100,7 @@ export default function KanbanPage() {
 
       setColumns(columnsWithTasks)
     } catch (error) {
-      console.error('Failed to load kanban data:', error)
+      if (isDev) console.error('Failed to load kanban data:', error)
       toast.error('칸반 데이터를 불러오는데 실패했습니다.')
     } finally {
       setLoading(false)
@@ -162,7 +164,7 @@ export default function KanbanPage() {
         }
       }
     } catch (error) {
-      console.error('Failed to update tasks:', error)
+      if (isDev) console.error('Failed to update tasks:', error)
       toast.error('작업 업데이트에 실패했습니다.')
       await loadData()
     } finally {
@@ -171,7 +173,7 @@ export default function KanbanPage() {
   }, [tasks, user, userProfile, projectId, loadData])
 
   const handleTaskAdd = (columnId: string) => {
-    console.log('Add task to column:', columnId)
+    if (isDev) console.log('Add task to column:', columnId)
   }
 
   const handleTaskEdit = (task: KanbanTask) => {
@@ -218,7 +220,7 @@ export default function KanbanPage() {
         toast.error(result.error || '작업 수정에 실패했습니다.')
       }
     } catch (error) {
-      console.error('Failed to update task:', error)
+      if (isDev) console.error('Failed to update task:', error)
       toast.error('작업 수정 중 오류가 발생했습니다.')
     }
   }
@@ -262,7 +264,7 @@ export default function KanbanPage() {
         toast.error(result.error || '작업 삭제에 실패했습니다.')
       }
     } catch (error) {
-      console.error('Failed to delete task:', error)
+      if (isDev) console.error('Failed to delete task:', error)
       toast.error('작업 삭제 중 오류가 발생했습니다.')
     }
   }
@@ -321,7 +323,7 @@ export default function KanbanPage() {
         return null
       }
     } catch (error) {
-      console.error('Failed to create task:', error)
+      if (isDev) console.error('Failed to create task:', error)
       toast.error('작업 생성 중 오류가 발생했습니다.')
       return null
     }

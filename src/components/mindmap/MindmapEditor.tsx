@@ -1,4 +1,5 @@
 'use client'
+const isDev = process.env.NODE_ENV === 'development'
 
 import React, { useState, useCallback, useEffect } from 'react'
 import ReactFlow, {
@@ -139,7 +140,7 @@ export default function MindmapEditor({ projectId, projectName }: MindmapEditorP
             setNodes(layoutedNodes)
             setEdges(layoutedEdges)
         } catch (error) {
-            console.error('Failed to load tasks:', error)
+      if (isDev) console.error('Failed to load tasks:', error)
             toast.error('작업 로드 실패')
         } finally {
             setLoading(false)
@@ -185,7 +186,7 @@ export default function MindmapEditor({ projectId, projectName }: MindmapEditorP
             // Reload to sync with Kanban/Gantt
             await loadTasks()
         } catch (error) {
-            console.error('Failed to add node:', error)
+      if (isDev) console.error('Failed to add node:', error)
             toast.error('작업 생성에 실패했습니다')
         }
     }

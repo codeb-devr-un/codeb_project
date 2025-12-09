@@ -1,4 +1,5 @@
 'use client'
+const isDev = process.env.NODE_ENV === 'development'
 
 import React, { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
@@ -102,7 +103,7 @@ export default function WorkspaceInvitations({ workspaceId }: { workspaceId: str
                 setMembers(memData)
             }
         } catch (err) {
-            console.error('Failed to fetch data:', err)
+      if (isDev) console.error('Failed to fetch data:', err)
         } finally {
             setLoading(false)
         }

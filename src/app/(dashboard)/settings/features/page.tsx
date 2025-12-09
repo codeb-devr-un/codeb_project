@@ -1,5 +1,7 @@
 'use client'
 
+const isDev = process.env.NODE_ENV === 'development'
+
 // ===========================================
 // 기능 설정 및 권한 관리 페이지
 // - 기능 토글 + 기능별 관리자 지정
@@ -253,7 +255,7 @@ export default function FeaturesSettingsPage() {
         setFeatureAdmins(data)
       }
     } catch (error) {
-      console.error('Failed to load data:', error)
+      if (isDev) console.error('Failed to load data:', error)
     }
   }, [currentWorkspace?.id])
 
@@ -293,7 +295,7 @@ export default function FeaturesSettingsPage() {
         toast.error(error.error || '기능 설정 저장 실패')
       }
     } catch (error) {
-      console.error('Failed to save features:', error)
+      if (isDev) console.error('Failed to save features:', error)
       toast.error('기능 설정 저장 중 오류가 발생했습니다')
     } finally {
       setSavingFeatures(false)
@@ -319,7 +321,7 @@ export default function FeaturesSettingsPage() {
         toast.error(error.error || '권한 변경 실패')
       }
     } catch (error) {
-      console.error('Failed to change role:', error)
+      if (isDev) console.error('Failed to change role:', error)
       toast.error('권한 변경 중 오류가 발생했습니다')
     } finally {
       setSavingRole(null)
@@ -346,7 +348,7 @@ export default function FeaturesSettingsPage() {
         toast.error(error.error || '멤버 제거 실패')
       }
     } catch (error) {
-      console.error('Failed to remove member:', error)
+      if (isDev) console.error('Failed to remove member:', error)
       toast.error('멤버 제거 중 오류가 발생했습니다')
     }
   }
@@ -374,7 +376,7 @@ export default function FeaturesSettingsPage() {
         toast.error(error.error || '기능 관리자 추가 실패')
       }
     } catch (error) {
-      console.error('Failed to add feature admin:', error)
+      if (isDev) console.error('Failed to add feature admin:', error)
       toast.error('기능 관리자 추가 중 오류가 발생했습니다')
     } finally {
       setAddingAdmin(false)
@@ -398,7 +400,7 @@ export default function FeaturesSettingsPage() {
         toast.error(error.error || '기능 관리자 제거 실패')
       }
     } catch (error) {
-      console.error('Failed to remove feature admin:', error)
+      if (isDev) console.error('Failed to remove feature admin:', error)
       toast.error('기능 관리자 제거 중 오류가 발생했습니다')
     }
   }
@@ -429,7 +431,7 @@ export default function FeaturesSettingsPage() {
         toast.error(error.error || '워크스페이스 승계 실패')
       }
     } catch (error) {
-      console.error('Failed to transfer ownership:', error)
+      if (isDev) console.error('Failed to transfer ownership:', error)
       toast.error('워크스페이스 승계 중 오류가 발생했습니다')
     } finally {
       setTransferring(false)

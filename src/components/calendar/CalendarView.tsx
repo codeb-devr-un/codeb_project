@@ -1,4 +1,5 @@
 'use client'
+const isDev = process.env.NODE_ENV === 'development'
 
 import React, { useState, useEffect } from 'react'
 import {
@@ -153,7 +154,7 @@ export default function CalendarView() {
             setEvents(fetchedEvents as unknown as CalendarEvent[])
             setProjects(fetchedProjects)
         } catch (error) {
-            console.error('Failed to load data:', error)
+      if (isDev) console.error('Failed to load data:', error)
             toast.error('데이터를 불러오는데 실패했습니다.')
         } finally {
             setLoading(false)
@@ -232,7 +233,7 @@ export default function CalendarView() {
                 throw new Error('Create failed')
             }
         } catch (error) {
-            console.error('Error creating event:', error)
+      if (isDev) console.error('Error creating event:', error)
             toast.error('일정 생성 실패')
         }
     }
@@ -268,7 +269,7 @@ export default function CalendarView() {
                 throw new Error('Create failed')
             }
         } catch (error) {
-            console.error('Error creating meeting:', error)
+      if (isDev) console.error('Error creating meeting:', error)
             toast.error('미팅 신청 실패')
         }
     }
@@ -340,7 +341,7 @@ export default function CalendarView() {
                 throw new Error('Update failed')
             }
         } catch (error) {
-            console.error('Error updating event:', error)
+      if (isDev) console.error('Error updating event:', error)
             toast.error('일정 수정 실패')
         }
     }
@@ -363,7 +364,7 @@ export default function CalendarView() {
                 throw new Error('Delete failed')
             }
         } catch (error) {
-            console.error('Error deleting event:', error)
+      if (isDev) console.error('Error deleting event:', error)
             toast.error('일정 삭제 실패')
         }
     }

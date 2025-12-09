@@ -5,6 +5,8 @@ import { TaskStatus, TaskPriority } from '@/types/task'
 import { getTasks, createTask, updateTask, deleteTask, updateTasksOrder } from '@/actions/task'
 import { toast } from 'react-hot-toast'
 
+const isDev = process.env.NODE_ENV === 'development'
+
 interface NewTaskData {
   title: string
   description: string
@@ -35,7 +37,9 @@ export function useProjectTasks(projectId: string | undefined) {
       // Assuming they are compatible or we cast them
       setTasks(data as unknown as TaskType[])
     } catch (error) {
-      console.error('Error fetching tasks:', error)
+      if (isDev) {
+        console.error('Error fetching tasks:', error)
+      }
       toast.error('작업 목록을 불러오는데 실패했습니다.')
     }
   }
@@ -76,7 +80,9 @@ export function useProjectTasks(projectId: string | undefined) {
         throw new Error('Task creation failed')
       }
     } catch (error) {
-      console.error('Error creating task:', error)
+      if (isDev) {
+        console.error('Error creating task:', error)
+      }
       toast.error('작업 생성 중 오류가 발생했습니다.')
       throw error
     }
@@ -104,7 +110,9 @@ export function useProjectTasks(projectId: string | undefined) {
         throw new Error('Task update failed')
       }
     } catch (error) {
-      console.error('Error updating task:', error)
+      if (isDev) {
+        console.error('Error updating task:', error)
+      }
       toast.error('작업 수정 중 오류가 발생했습니다.')
     }
   }
@@ -121,7 +129,9 @@ export function useProjectTasks(projectId: string | undefined) {
         throw new Error('Task deletion failed')
       }
     } catch (error) {
-      console.error('Error deleting task:', error)
+      if (isDev) {
+        console.error('Error deleting task:', error)
+      }
       toast.error('작업 삭제 중 오류가 발생했습니다.')
     }
   }
@@ -162,7 +172,9 @@ export function useProjectTasks(projectId: string | undefined) {
         // Let's do it in the loop above or separate calls.
         // For now, just reorder.
       } catch (error) {
-        console.error('Error updating tasks order:', error)
+        if (isDev) {
+          console.error('Error updating tasks order:', error)
+        }
         toast.error('작업 순서 변경 중 오류가 발생했습니다.')
         fetchTasks() // Revert on error
       }

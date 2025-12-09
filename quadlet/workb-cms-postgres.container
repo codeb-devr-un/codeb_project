@@ -1,0 +1,44 @@
+[Unit]
+Description=WorkB CMS PostgreSQL Database
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+ContainerName=workb-cms-postgres
+Image=docker.io/postgres:15-alpine
+AutoUpdate=registry
+
+# Port mapping
+PublishPort=5433:5432
+
+# Environment
+Environment=POSTGRES_USER=workb
+Environment=POSTGRES_DB=workb_cms
+EnvironmentFile=/etc/containers/systemd/workb-cms-postgres.env
+
+# Volume for data persistence
+Volume=workb-cms-postgres-data:/var/lib/postgresql/data:Z
+
+# Health check
+HealthCmd=pg_isready -U workb -d workb_cms
+HealthInterval=30s
+HealthTimeout=10s
+HealthRetries=5
+HealthStartPeriod=30s
+
+# Resource limits
+PodmanArgs=--memory=1g --cpus=1
+
+# Network
+Network=workb-network
+
+# Logging
+LogDriver=journald
+
+[Service]
+Restart=always
+RestartSec=10
+TimeoutStartSec=120
+
+[Install]
+WantedBy=multi-user.target default.target

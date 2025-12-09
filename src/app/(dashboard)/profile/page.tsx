@@ -1,5 +1,7 @@
 'use client'
 
+const isDev = process.env.NODE_ENV === 'development'
+
 // ===========================================
 // Glass Morphism Profile Page
 // ===========================================
@@ -93,7 +95,7 @@ export default function ProfilePage() {
         toast.error('프로필 저장에 실패했습니다.')
       }
     } catch (error) {
-      console.error('Error saving profile:', error)
+      if (isDev) console.error('Error saving profile:', error)
       toast.error('프로필 저장 중 오류가 발생했습니다.')
     } finally {
       setSaving(false)

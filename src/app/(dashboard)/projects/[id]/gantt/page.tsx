@@ -1,5 +1,7 @@
 'use client'
 
+const isDev = process.env.NODE_ENV === 'development'
+
 import React, { useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
@@ -102,24 +104,24 @@ export default function GanttPage() {
   const [tasks, setTasks] = useState<Task[]>(mockGanttTasks)
 
   const handleTaskChange = (task: Task) => {
-    console.log("Task changed:", task)
+    if (isDev) console.log("Task changed:", task)
     const newTasks = tasks.map((t) => (t.id === task.id ? task : t))
     setTasks(newTasks)
   }
 
   const handleTaskDelete = (task: Task) => {
-    console.log("Task deleted:", task)
+    if (isDev) console.log("Task deleted:", task)
     setTasks(tasks.filter((t) => t.id !== task.id))
   }
 
   const handleProgressChange = (task: Task) => {
-    console.log("Progress changed:", task)
+    if (isDev) console.log("Progress changed:", task)
     const newTasks = tasks.map((t) => (t.id === task.id ? task : t))
     setTasks(newTasks)
   }
 
   const handleDateChange = (task: Task) => {
-    console.log("Date changed:", task)
+    if (isDev) console.log("Date changed:", task)
     const newTasks = tasks.map((t) => (t.id === task.id ? task : t))
     setTasks(newTasks)
   }

@@ -1,4 +1,5 @@
 'use client'
+const isDev = process.env.NODE_ENV === 'development'
 
 import React, { useState, useEffect, useRef } from 'react'
 import { useAuth } from '@/lib/auth-context'
@@ -65,7 +66,7 @@ export default function Header({ showSidebarToggle = true, onSidebarToggle }: He
       router.push('/login')
       toast.success('로그아웃되었습니다.')
     } catch (error) {
-      console.error('Logout error:', error)
+      if (isDev) console.error('Logout error:', error)
       toast.error('로그아웃 중 오류가 발생했습니다.')
     }
   }

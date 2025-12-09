@@ -1,9 +1,9 @@
 Dockerfile
+Dockerfile.*
 .dockerignore
 node_modules
 npm-debug.log
 README.md
-.next
 .git
 .gitignore
 .env
@@ -17,3 +17,7 @@ coverage
 .nyc_output
 dist
 build
+
+# Exclude .next for regular Docker builds, but keep for staging
+# Note: Dockerfile.staging needs .next/standalone and .next/static
+# Use --ignore for staging builds to override this

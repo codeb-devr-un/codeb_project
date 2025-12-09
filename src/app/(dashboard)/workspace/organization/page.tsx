@@ -1,5 +1,7 @@
 'use client'
 
+const isDev = process.env.NODE_ENV === 'development'
+
 import React, { useState, useEffect } from 'react'
 import { DndContext, DragEndEvent, DragOverlay, closestCenter } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
@@ -36,7 +38,7 @@ export default function OrganizationPage() {
             const data = await response.json()
             setMembers(data)
         } catch (error) {
-            console.error('Failed to load members:', error)
+            if (isDev) console.error('Failed to load members:', error)
         } finally {
             setLoading(false)
         }
@@ -77,7 +79,7 @@ export default function OrganizationPage() {
             })
             toast.success('부서가 변경되었습니다')
         } catch (error) {
-            console.error('Failed to update member department:', error)
+            if (isDev) console.error('Failed to update member department:', error)
             toast.error('부서 변경에 실패했습니다')
             loadMembers()
         }

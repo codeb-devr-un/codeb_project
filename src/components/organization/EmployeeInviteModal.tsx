@@ -1,4 +1,5 @@
 'use client'
+const isDev = process.env.NODE_ENV === 'development'
 
 import React, { useState } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
@@ -32,7 +33,7 @@ export default function EmployeeInviteModal({ isOpen, onClose, onInvite }: Emplo
       onInvite()
       onClose()
     } catch (error) {
-      console.error('Invite error:', error)
+      if (isDev) console.error('Invite error:', error)
       toast.error('초대 중 오류가 발생했습니다.')
     } finally {
       setLoading(false)

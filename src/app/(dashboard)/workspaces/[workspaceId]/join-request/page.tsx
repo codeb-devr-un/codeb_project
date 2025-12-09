@@ -1,5 +1,7 @@
 'use client';
 
+const isDev = process.env.NODE_ENV === 'development'
+
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
@@ -61,7 +63,7 @@ export default function JoinRequestPage() {
         _count: { members: 0 },
       });
     } catch (err) {
-      console.error('Failed to fetch workspace:', err);
+      if (isDev) console.error('Failed to fetch workspace:', err);
     } finally {
       setLoading(false);
     }
@@ -82,7 +84,7 @@ export default function JoinRequestPage() {
         }
       }
     } catch (err) {
-      console.error('Failed to check existing request:', err);
+      if (isDev) console.error('Failed to check existing request:', err);
     }
   };
 

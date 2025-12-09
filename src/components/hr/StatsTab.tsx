@@ -1,4 +1,5 @@
 'use client'
+const isDev = process.env.NODE_ENV === 'development'
 
 import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -41,7 +42,7 @@ export default function StatsTab({ userId, workspaceId, isAdmin }: StatsTabProps
         }
       }
     } catch (e) {
-      console.error('Failed to load stats:', e)
+      if (isDev) console.error('Failed to load stats:', e)
     } finally {
       setLoading(false)
     }

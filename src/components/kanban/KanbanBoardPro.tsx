@@ -31,6 +31,8 @@ import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import { Edit2, Trash2, Plus, Search, Calendar, Paperclip, MessageSquare, CheckSquare, Flame, AlertTriangle, AlertCircle, ChevronDown } from 'lucide-react'
 
+const isDev = process.env.NODE_ENV === 'development'
+
 interface KanbanColumn {
   id: string
   title: string
@@ -102,7 +104,7 @@ function SortableTaskItem({ task, onEdit, onDelete }: {
                 className="h-6 w-6"
                 onClick={(e) => {
                   e.stopPropagation()
-                  console.log('Edit button clicked for task:', task)
+                  if (isDev) console.log('Edit button clicked for task:', task)
                   onEdit(task)
                 }}
               >
@@ -116,7 +118,7 @@ function SortableTaskItem({ task, onEdit, onDelete }: {
                 className="h-6 w-6 hover:text-destructive"
                 onClick={(e) => {
                   e.stopPropagation()
-                  console.log('Delete button clicked for task:', task.id)
+                  if (isDev) console.log('Delete button clicked for task:', task.id)
                   onDelete(task.id)
                 }}
               >
@@ -483,7 +485,7 @@ export default function KanbanBoardPro({
       if (onColumnsChange) {
         // Use setTimeout to ensure this runs after the state update is processed
         setTimeout(() => {
-          console.log('Triggering onColumnsChange from handleDragEnd', finalColumns)
+          if (isDev) console.log('Triggering onColumnsChange from handleDragEnd', finalColumns)
           onColumnsChange(finalColumns)
         }, 0)
       }

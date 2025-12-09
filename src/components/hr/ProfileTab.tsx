@@ -1,4 +1,5 @@
 'use client'
+const isDev = process.env.NODE_ENV === 'development'
 
 import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -50,7 +51,7 @@ export default function ProfileTab({ userId, workspaceId, isAdmin }: ProfileTabP
         setEditForm(data.employee || {})
       }
     } catch (e) {
-      console.error('Failed to load profile:', e)
+      if (isDev) console.error('Failed to load profile:', e)
     } finally {
       setLoading(false)
     }
@@ -66,7 +67,7 @@ export default function ProfileTab({ userId, workspaceId, isAdmin }: ProfileTabP
         setAllEmployees(data.employees || [])
       }
     } catch (e) {
-      console.error('Failed to load employees:', e)
+      if (isDev) console.error('Failed to load employees:', e)
     }
   }
 

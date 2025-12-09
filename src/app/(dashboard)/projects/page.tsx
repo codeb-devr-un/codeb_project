@@ -1,5 +1,7 @@
 'use client'
 
+const isDev = process.env.NODE_ENV === 'development'
+
 import React, { useState, useEffect, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
@@ -67,7 +69,7 @@ export default function ProjectsPage() {
         const data = await getProjects(user.uid, currentWorkspace.id)
         setProjects(data as unknown as Project[])
       } catch (error) {
-        console.error('Failed to load projects:', error)
+        if (isDev) console.error('Failed to load projects:', error)
         toast.error('프로젝트 목록을 불러오는데 실패했습니다.')
       } finally {
         setLoading(false)
@@ -127,7 +129,7 @@ export default function ProjectsPage() {
   // 프로젝트 생성 핸들러
   const handleCreateProject = async (projectData: Omit<Project, 'id' | 'createdAt' | 'updatedAt'> & { inviteMembers?: Array<{ email: string; role: string }> }) => {
     if (!user || !currentWorkspace) {
-      console.error('Missing context:', { user: !!user, workspace: !!currentWorkspace })
+      if (isDev) console.error('Missing context:', { user: !!user, workspace: !!currentWorkspace })
       toast.error('사용자 또는 워크스페이스 정보를 찾을 수 없습니다. 페이지를 새로고침 해주세요.')
       return
     }
@@ -165,7 +167,7 @@ export default function ProjectsPage() {
         throw new Error('Project creation failed')
       }
     } catch (error) {
-      console.error('Error creating project:', error)
+      if (isDev) console.error('Error creating project:', error)
       toast.error('프로젝트 생성 중 오류가 발생했습니다.')
     }
   }

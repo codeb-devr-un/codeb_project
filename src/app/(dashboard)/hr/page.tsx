@@ -1,5 +1,7 @@
 'use client'
 
+const isDev = process.env.NODE_ENV === 'development'
+
 import React, { useState, useEffect } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { useWorkspace } from '@/lib/workspace-context'
@@ -78,7 +80,7 @@ export default function HRPage() {
         }
       }
     } catch (e) {
-      console.error('Failed to check user role:', e)
+      if (isDev) console.error('Failed to check user role:', e)
     } finally {
       setLoading(false)
     }

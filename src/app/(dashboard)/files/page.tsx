@@ -1,5 +1,7 @@
 'use client'
 
+const isDev = process.env.NODE_ENV === 'development'
+
 import React, { useState, useEffect } from 'react'
 import FileUpload from '@/components/files/FileUpload'
 import FileList, { FileItem } from '@/components/files/FileList'
@@ -42,7 +44,7 @@ export default function FilesPage() {
       // const filesList = await fileService.getFiles()
       setFiles([])
     } catch (error) {
-      console.error('Failed to load files:', error)
+      if (isDev) console.error('Failed to load files:', error)
       toast.error('파일 목록을 불러오는데 실패했습니다.')
     } finally {
       setLoading(false)

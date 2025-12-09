@@ -1,5 +1,7 @@
 'use client'
 
+const isDev = process.env.NODE_ENV === 'development'
+
 // ===========================================
 // Glass Morphism Settings Page
 // ===========================================
@@ -261,7 +263,7 @@ export default function SettingsPage() {
       toast.success('설정 저장 기능은 현재 사용할 수 없습니다.')
       setHasChanges(false)
     } catch (error) {
-      console.error('Error saving settings:', error)
+      if (isDev) console.error('Error saving settings:', error)
       toast.error('설정 저장 중 오류가 발생했습니다.')
     } finally {
       setSaving(false)
@@ -312,7 +314,7 @@ export default function SettingsPage() {
         toast.error(error.error || '기능 설정 저장 실패')
       }
     } catch (error) {
-      console.error('Failed to save features:', error)
+      if (isDev) console.error('Failed to save features:', error)
       toast.error('기능 설정 저장 중 오류가 발생했습니다')
     } finally {
       setSavingFeatures(false)

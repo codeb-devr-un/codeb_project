@@ -1,0 +1,46 @@
+[Unit]
+Description=WorkB CMS Production Container
+After=network-online.target
+Wants=network-online.target
+After=workb-cms-postgres.service
+After=workb-cms-redis.service
+
+[Container]
+ContainerName=workb-cms
+Image=ghcr.io/codeb-devr-un/workb-cms:latest
+AutoUpdate=registry
+
+# Port mapping
+PublishPort=3200:3000
+
+# Environment
+Environment=NODE_ENV=production
+Environment=PORT=3000
+Environment=HOSTNAME=0.0.0.0
+
+# Environment file with secrets
+EnvironmentFile=/etc/containers/systemd/workb-cms.env
+
+# Health check
+HealthCmd=curl -f http://localhost:3000/api/health || exit 1
+HealthInterval=30s
+HealthTimeout=10s
+HealthRetries=3
+HealthStartPeriod=40s
+
+# Resource limits
+PodmanArgs=--memory=2g --cpus=2
+
+# Network
+Network=workb-network
+
+# Logging
+LogDriver=journald
+
+[Service]
+Restart=always
+RestartSec=10
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target default.target

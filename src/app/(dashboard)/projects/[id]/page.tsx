@@ -35,6 +35,8 @@ import ProjectInviteBanner from '@/components/projects/ProjectInviteBanner'
 import ProjectSettingsCard from '@/components/projects/ProjectSettingsCard'
 import { cn } from '@/lib/utils'
 
+const isDev = process.env.NODE_ENV === 'development'
+
 interface ProjectDetail {
   id: string
   name: string
@@ -158,12 +160,12 @@ export default function ProjectDetailPage() {
         columnId: task.columnId || getColumnIdFromStatus(task.status)
       }))
 
-      console.log('loadProjectData: Received tasks:', tasksWithColumnId.length, tasksWithColumnId[0])
+      if (isDev) console.log('loadProjectData: Received tasks:', tasksWithColumnId.length, tasksWithColumnId[0])
 
       setTasks(tasksWithColumnId)
       setActivities(activitiesData as any)
     } catch (error) {
-      console.error('Failed to load project data:', error)
+      if (isDev) console.error('Failed to load project data:', error)
       toast.error('프로젝트 데이터를 불러오는데 실패했습니다.')
     } finally {
       setLoading(false)
@@ -183,7 +185,7 @@ export default function ProjectDetailPage() {
 
     // Listen for task movements from other users
     const handleTaskMoved = (data: any) => {
-      console.log('Received task-moved event:', data)
+      if (isDev) console.log('Received task-moved event:', data)
       // Reload tasks to sync with other users
       loadProjectData()
     }
@@ -196,10 +198,10 @@ export default function ProjectDetailPage() {
   }, [socket, params?.id])
 
   const handleColumnsChange = useCallback(async (newColumns: KanbanColumnWithTasks[]) => {
-    console.log('handleColumnsChange called', { isUpdating: isUpdatingRef.current, newColumns })
+    if (isDev) console.log('handleColumnsChange called', { isUpdating: isUpdatingRef.current, newColumns })
 
     if (isUpdatingRef.current) {
-      console.log('Already updating, skipping')
+      if (isDev) console.log('Already updating, skipping')
       return
     }
 
@@ -222,7 +224,7 @@ export default function ProjectDetailPage() {
         })
       })
 
-      console.log('Task updates:', taskUpdates)
+      if (isDev) console.log('Task updates:', taskUpdates)
 
       if (taskUpdates.length > 0 && user && project) {
         // Update local state first for immediate feedback
@@ -230,7 +232,7 @@ export default function ProjectDetailPage() {
 
         // Then update server
         const result = await updateTasksOrder(project.id, taskUpdates)
-        console.log('Update result:', result)
+        if (isDev) console.log('Update result:', result)
 
         // Log activities
         for (const update of taskUpdates) {
@@ -259,7 +261,7 @@ export default function ProjectDetailPage() {
         }
       }
     } catch (error) {
-      console.error('Failed to update tasks:', error)
+      if (isDev) console.error('Failed to update tasks:', error)
       toast.error('작업 업데이트에 실패했습니다.')
       // Reload data on error
       await loadProjectData()
@@ -353,7 +355,7 @@ export default function ProjectDetailPage() {
         }
       }
     } catch (error) {
-      console.error('Error saving task:', error)
+      if (isDev) console.error('Error saving task:', error)
       toast.error('작업 저장 중 오류가 발생했습니다.')
     }
   }
@@ -1153,7 +1155,7 @@ export default function ProjectDetailPage() {
                       return null
                     }
                   } catch (error) {
-                    console.error('Failed to create task:', error)
+                    if (isDev) console.error('Failed to create task:', error)
                     toast.error('작업 생성 중 오류가 발생했습니다.')
                     return null
                   }
@@ -1200,7 +1202,7 @@ export default function ProjectDetailPage() {
                       toast.error('작업 수정에 실패했습니다.')
                     }
                   } catch (error) {
-                    console.error('Failed to update task:', error)
+                    if (isDev) console.error('Failed to update task:', error)
                     toast.error('오류가 발생했습니다.')
                   }
                 }}
@@ -1218,7 +1220,7 @@ export default function ProjectDetailPage() {
                       toast.error('일정 변경에 실패했습니다.')
                     }
                   } catch (error) {
-                    console.error('Failed to update task date:', error)
+                    if (isDev) console.error('Failed to update task date:', error)
                     toast.error('오류가 발생했습니다.')
                   }
                 }}
@@ -1235,7 +1237,7 @@ export default function ProjectDetailPage() {
                       toast.error('진행률 변경에 실패했습니다.')
                     }
                   } catch (error) {
-                    console.error('Failed to update task progress:', error)
+                    if (isDev) console.error('Failed to update task progress:', error)
                     toast.error('오류가 발생했습니다.')
                   }
                 }}
@@ -1246,7 +1248,7 @@ export default function ProjectDetailPage() {
                       toast.success('작업이 삭제되었습니다.')
                       loadProjectData()
                     } catch (error) {
-                      console.error('Failed to delete task:', error)
+                      if (isDev) console.error('Failed to delete task:', error)
                       toast.error('작업 삭제에 실패했습니다.')
                     }
                   }

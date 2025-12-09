@@ -1,4 +1,5 @@
 'use client'
+const isDev = process.env.NODE_ENV === 'development'
 
 import { createContext, useContext, useEffect, useState } from 'react'
 
@@ -35,7 +36,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
                 : process.env.NEXT_PUBLIC_SITE_URL || '')
 
         if (!socketUrl) {
-            console.warn('Socket.io: No server URL configured')
+      if (isDev) console.warn('Socket.io: No server URL configured')
             return
         }
 
@@ -55,22 +56,22 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
                 })
 
                 socketInstance.on('connect', () => {
-                    console.log('Socket.io connected:', socketInstance.id)
+      if (isDev) console.log('Socket.io connected:', socketInstance.id)
                     setIsConnected(true)
                 })
 
                 socketInstance.on('disconnect', () => {
-                    console.log('Socket.io disconnected')
+      if (isDev) console.log('Socket.io disconnected')
                     setIsConnected(false)
                 })
 
                 socketInstance.on('connect_error', (err: Error) => {
-                    console.warn('Socket.io connection error:', err.message)
+      if (isDev) console.warn('Socket.io connection error:', err.message)
                 })
 
                 setSocket(socketInstance)
             } catch (error) {
-                console.warn('Socket.io initialization failed:', error)
+      if (isDev) console.warn('Socket.io initialization failed:', error)
             }
         }
 

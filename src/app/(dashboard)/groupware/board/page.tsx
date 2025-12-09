@@ -1,5 +1,7 @@
 'use client'
 
+const isDev = process.env.NODE_ENV === 'development'
+
 import React, { useState, useEffect } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { useWorkspace } from '@/lib/workspace-context'
@@ -112,7 +114,7 @@ export default function BoardPage() {
             const data = await response.json()
             setPosts(Array.isArray(data) ? data : [])
         } catch (error) {
-            console.error('Failed to load posts:', error)
+            if (isDev) console.error('Failed to load posts:', error)
             toast.error('게시글을 불러오는데 실패했습니다')
             setPosts([])
         } finally {
@@ -127,7 +129,7 @@ export default function BoardPage() {
             setSelectedPost(data)
             setViewMode('view')
         } catch (error) {
-            console.error('Failed to load post:', error)
+            if (isDev) console.error('Failed to load post:', error)
             toast.error('게시글을 불러오는데 실패했습니다')
         }
     }
@@ -206,7 +208,7 @@ export default function BoardPage() {
             loadPosts()
             handleBackToList()
         } catch (error) {
-            console.error('Failed to save post:', error)
+            if (isDev) console.error('Failed to save post:', error)
             toast.error('저장에 실패했습니다')
         } finally {
             setIsSubmitting(false)
@@ -227,7 +229,7 @@ export default function BoardPage() {
             loadPosts()
             handleBackToList()
         } catch (error) {
-            console.error('Failed to delete post:', error)
+            if (isDev) console.error('Failed to delete post:', error)
             toast.error('삭제에 실패했습니다')
         } finally {
             setDeleteDialogOpen(false)
@@ -272,7 +274,7 @@ export default function BoardPage() {
             setNewComment('')
             toast.success('댓글이 등록되었습니다')
         } catch (error) {
-            console.error('Failed to add comment:', error)
+            if (isDev) console.error('Failed to add comment:', error)
             toast.error('댓글 등록에 실패했습니다')
         } finally {
             setIsCommentSubmitting(false)
@@ -317,7 +319,7 @@ export default function BoardPage() {
             setEditingCommentContent('')
             toast.success('댓글이 수정되었습니다')
         } catch (error) {
-            console.error('Failed to update comment:', error)
+            if (isDev) console.error('Failed to update comment:', error)
             toast.error('댓글 수정에 실패했습니다')
         } finally {
             setIsCommentSubmitting(false)
@@ -345,7 +347,7 @@ export default function BoardPage() {
             })
             toast.success('댓글이 삭제되었습니다')
         } catch (error) {
-            console.error('Failed to delete comment:', error)
+            if (isDev) console.error('Failed to delete comment:', error)
             toast.error('댓글 삭제에 실패했습니다')
         } finally {
             setDeleteCommentDialogOpen(false)

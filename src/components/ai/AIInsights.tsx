@@ -1,4 +1,5 @@
 'use client'
+const isDev = process.env.NODE_ENV === 'development'
 
 import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -27,7 +28,7 @@ export default function AIInsights({ projectId, compact = false }: AIInsightsPro
       const projectAnalysis = await aiService.analyzeProject(projectId || 'default')
       setAnalysis(projectAnalysis)
     } catch (error) {
-      console.error('Failed to load AI insights:', error)
+      if (isDev) console.error('Failed to load AI insights:', error)
     } finally {
       setIsLoading(false)
     }

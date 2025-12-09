@@ -1,5 +1,7 @@
 'use client'
 
+const isDev = process.env.NODE_ENV === 'development'
+
 // ===========================================
 // Glass Morphism Finance Contracts Page
 // ===========================================
@@ -24,7 +26,7 @@ export default function ContractsPage() {
             const data = await response.json()
             setContracts(data)
         } catch (error) {
-            console.error('Failed to load contracts:', error)
+            if (isDev) console.error('Failed to load contracts:', error)
         } finally {
             setLoading(false)
         }

@@ -1,0 +1,42 @@
+[Unit]
+Description=WorkB CMS Redis Cache
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+ContainerName=workb-cms-redis
+Image=docker.io/redis:7-alpine
+AutoUpdate=registry
+
+# Port mapping
+PublishPort=6380:6379
+
+# Volume for data persistence
+Volume=workb-cms-redis-data:/data:Z
+
+# Health check
+HealthCmd=redis-cli ping | grep PONG
+HealthInterval=30s
+HealthTimeout=10s
+HealthRetries=3
+HealthStartPeriod=10s
+
+# Resource limits
+PodmanArgs=--memory=512m --cpus=0.5
+
+# Redis configuration
+Exec=redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+
+# Network
+Network=workb-network
+
+# Logging
+LogDriver=journald
+
+[Service]
+Restart=always
+RestartSec=10
+TimeoutStartSec=60
+
+[Install]
+WantedBy=multi-user.target default.target

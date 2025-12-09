@@ -1,5 +1,7 @@
 'use client'
 
+const isDev = process.env.NODE_ENV === 'development'
+
 // ===========================================
 // Glass Morphism Leave Management Page
 // ===========================================
@@ -31,7 +33,7 @@ export default function LeavePage() {
       setLeaveRequests(data.requests || [])
       setLeaveBalance(data.balance || { total: 15, used: 0, remaining: 15 })
     } catch (error) {
-      console.error('Failed to load leave data:', error)
+      if (isDev) console.error('Failed to load leave data:', error)
     } finally {
       setLoading(false)
     }

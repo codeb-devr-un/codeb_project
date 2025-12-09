@@ -1,4 +1,5 @@
 'use client'
+const isDev = process.env.NODE_ENV === 'development'
 
 import React, { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
@@ -159,7 +160,7 @@ export default function ProjectInvitations({ projectId, isAdmin = false }: Proje
                 }
             }
         } catch (err) {
-            console.error('Failed to fetch data:', err)
+      if (isDev) console.error('Failed to fetch data:', err)
         } finally {
             setLoading(false)
         }
@@ -268,7 +269,7 @@ export default function ProjectInvitations({ projectId, isAdmin = false }: Proje
                 toast.error('초대 취소에 실패했습니다.')
             }
         } catch (err) {
-            console.error('Failed to revoke invitation:', err)
+      if (isDev) console.error('Failed to revoke invitation:', err)
             toast.error('초대 취소 중 오류가 발생했습니다.')
         }
     }

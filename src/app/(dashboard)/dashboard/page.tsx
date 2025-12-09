@@ -1,5 +1,7 @@
 'use client'
 
+const isDev = process.env.NODE_ENV === 'development'
+
 import React, { useEffect, useState, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
@@ -118,7 +120,7 @@ export default function DashboardPage() {
         isNew: a.isNew || a.isPinned
       })))
     } catch (error) {
-      console.error('Failed to load announcements:', error)
+      if (isDev) console.error('Failed to load announcements:', error)
     }
   }, [currentWorkspace?.id])
 
@@ -138,7 +140,7 @@ export default function DashboardPage() {
         comments: post.commentCount || post._count?.comments || 0
       })))
     } catch (error) {
-      console.error('Failed to load board posts:', error)
+      if (isDev) console.error('Failed to load board posts:', error)
     }
   }, [currentWorkspace?.id])
 
@@ -151,7 +153,7 @@ export default function DashboardPage() {
       const data = await response.json()
       setRecentActivities(data)
     } catch (error) {
-      console.error('Failed to load recent activities:', error)
+      if (isDev) console.error('Failed to load recent activities:', error)
     }
   }, [currentWorkspace?.id])
 
@@ -164,7 +166,7 @@ export default function DashboardPage() {
       const data = await response.json()
       setHrStats(data)
     } catch (error) {
-      console.error('Failed to load HR stats:', error)
+      if (isDev) console.error('Failed to load HR stats:', error)
     }
   }, [currentWorkspace?.id])
 
@@ -177,7 +179,7 @@ export default function DashboardPage() {
       const data = await response.json()
       setAttendanceList(data)
     } catch (error) {
-      console.error('Failed to load attendance list:', error)
+      if (isDev) console.error('Failed to load attendance list:', error)
     }
   }, [currentWorkspace?.id])
 
@@ -191,7 +193,7 @@ export default function DashboardPage() {
       const data = await response.json()
       setTodayAttendance(data.today)
     } catch (error) {
-      console.error('Failed to load attendance:', error)
+      if (isDev) console.error('Failed to load attendance:', error)
     }
   }, [userProfile?.uid])
 
@@ -207,7 +209,7 @@ export default function DashboardPage() {
         setEmployeeBirthDate(data.employee?.birthDate || null)
       }
     } catch (error) {
-      console.error('Failed to load employee birth date:', error)
+      if (isDev) console.error('Failed to load employee birth date:', error)
     }
   }, [currentWorkspace?.id])
 
@@ -223,7 +225,7 @@ export default function DashboardPage() {
         setStats(data.stats)
         setLoading(false)
       } catch (error) {
-        console.error('Error fetching dashboard data:', error)
+        if (isDev) console.error('Error fetching dashboard data:', error)
         setLoading(false)
       }
     }

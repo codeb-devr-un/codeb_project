@@ -20,12 +20,7 @@ jest.mock('next/navigation', () => ({
   },
 }))
 
-// Mock Firebase
-jest.mock('./src/lib/firebase', () => ({
-  auth: {},
-  database: {},
-  storage: {},
-}))
+// Firebase not used in this project - mock removed
 
 // Mock Framer Motion
 jest.mock('framer-motion', () => ({

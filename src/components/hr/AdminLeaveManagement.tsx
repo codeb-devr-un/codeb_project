@@ -1,4 +1,5 @@
 'use client'
+const isDev = process.env.NODE_ENV === 'development'
 
 import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -68,7 +69,7 @@ export default function AdminLeaveManagement({
         }
       }
     } catch (error) {
-      console.error('Failed to load leave requests:', error)
+      if (isDev) console.error('Failed to load leave requests:', error)
       toast.error('휴가 신청 목록을 불러오는데 실패했습니다.')
     } finally {
       setLoading(false)

@@ -1,5 +1,7 @@
 'use client'
 
+const isDev = process.env.NODE_ENV === 'development'
+
 import React, { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import {
@@ -73,7 +75,7 @@ export default function AnnouncementsPage() {
             const data = await response.json()
             setAnnouncements(data)
         } catch (error) {
-            console.error('Failed to load announcements:', error)
+            if (isDev) console.error('Failed to load announcements:', error)
             toast.error('공지사항을 불러오는데 실패했습니다')
         } finally {
             setLoading(false)
@@ -87,7 +89,7 @@ export default function AnnouncementsPage() {
             setSelectedAnnouncement(data)
             setViewMode('view')
         } catch (error) {
-            console.error('Failed to load announcement:', error)
+            if (isDev) console.error('Failed to load announcement:', error)
             toast.error('공지사항을 불러오는데 실패했습니다')
         }
     }
@@ -162,7 +164,7 @@ export default function AnnouncementsPage() {
             loadAnnouncements()
             handleBackToList()
         } catch (error) {
-            console.error('Failed to save announcement:', error)
+            if (isDev) console.error('Failed to save announcement:', error)
             toast.error('저장에 실패했습니다')
         } finally {
             setIsSubmitting(false)
@@ -183,7 +185,7 @@ export default function AnnouncementsPage() {
             loadAnnouncements()
             handleBackToList()
         } catch (error) {
-            console.error('Failed to delete announcement:', error)
+            if (isDev) console.error('Failed to delete announcement:', error)
             toast.error('삭제에 실패했습니다')
         } finally {
             setDeleteDialogOpen(false)

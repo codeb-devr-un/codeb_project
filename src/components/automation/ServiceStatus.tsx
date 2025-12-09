@@ -1,4 +1,5 @@
 'use client'
+const isDev = process.env.NODE_ENV === 'development'
 
 import { useEffect, useState } from 'react'
 import { checkAllServices } from '@/config/services'
@@ -19,7 +20,7 @@ export default function ServiceStatus() {
         const services = await checkAllServices()
         setStatus(services)
       } catch (error) {
-        console.error('서비스 상태 확인 실패:', error)
+      if (isDev) console.error('서비스 상태 확인 실패:', error)
       } finally {
         setLoading(false)
       }

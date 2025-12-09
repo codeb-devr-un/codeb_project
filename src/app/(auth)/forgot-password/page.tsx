@@ -1,5 +1,7 @@
 'use client'
 
+const isDev = process.env.NODE_ENV === 'development'
+
 import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -47,10 +49,10 @@ export default function ForgotPasswordPage() {
     try {
       // Mock API call for password reset
       await new Promise(resolve => setTimeout(resolve, 1500))
-      
+
       // Here you would typically call your password reset API
-      console.log('Password reset requested for:', email)
-      
+      if (isDev) console.log('Password reset requested for:', email)
+
       setIsSubmitted(true)
     } catch (err: any) {
       setError('비밀번호 재설정 요청에 실패했습니다.')

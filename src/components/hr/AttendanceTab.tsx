@@ -1,4 +1,5 @@
 'use client'
+const isDev = process.env.NODE_ENV === 'development'
 
 import React, { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -85,7 +86,7 @@ export default function AttendanceTab({ userId, workspaceId, isAdmin }: Attendan
       const data = await res.json()
       setUserIP(data.ip)
     } catch (e) {
-      console.error('Failed to fetch IP:', e)
+      if (isDev) console.error('Failed to fetch IP:', e)
     }
   }
 
@@ -109,7 +110,7 @@ export default function AttendanceTab({ userId, workspaceId, isAdmin }: Attendan
         })
       }
     } catch (e) {
-      console.error('Failed to load settings:', e)
+      if (isDev) console.error('Failed to load settings:', e)
     }
   }
 
@@ -124,7 +125,7 @@ export default function AttendanceTab({ userId, workspaceId, isAdmin }: Attendan
         setAttendanceHistory(data.history || [])
       }
     } catch (e) {
-      console.error('Failed to load attendance:', e)
+      if (isDev) console.error('Failed to load attendance:', e)
     }
   }
 
@@ -193,7 +194,7 @@ export default function AttendanceTab({ userId, workspaceId, isAdmin }: Attendan
       setIsPresenceCheckOpen(false)
       toast.success('근무 확인 완료')
     } catch (e) {
-      console.error('Presence check failed:', e)
+      if (isDev) console.error('Presence check failed:', e)
     }
   }
 

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState, useMemo } from 'react'
 
+const isDev = process.env.NODE_ENV === 'development'
+
 /**
  * Custom hook for debouncing values
  * @param value - The value to debounce
@@ -210,7 +212,9 @@ export function useLocalStorage<T>(
       const item = window.localStorage.getItem(key)
       return item ? JSON.parse(item) : initialValue
     } catch (error) {
-      console.error(`Error loading localStorage key "${key}":`, error)
+      if (isDev) {
+        console.error(`Error loading localStorage key "${key}":`, error)
+      }
       return initialValue
     }
   })
@@ -220,12 +224,14 @@ export function useLocalStorage<T>(
       try {
         const valueToStore = value instanceof Function ? value(storedValue) : value
         setStoredValue(valueToStore)
-        
+
         if (typeof window !== 'undefined') {
           window.localStorage.setItem(key, JSON.stringify(valueToStore))
         }
       } catch (error) {
-        console.error(`Error setting localStorage key "${key}":`, error)
+        if (isDev) {
+          console.error(`Error setting localStorage key "${key}":`, error)
+        }
       }
     },
     [key, storedValue]

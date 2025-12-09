@@ -1,5 +1,7 @@
 'use client'
 
+const isDev = process.env.NODE_ENV === 'development'
+
 // ===========================================
 // Glass Morphism P&L Page
 // ===========================================
@@ -24,7 +26,7 @@ export default function PLPage() {
             setSummary(data.summary || { income: 0, expense: 0, profit: 0 })
             setTransactions(data.transactions || [])
         } catch (error) {
-            console.error('Failed to load P&L data:', error)
+            if (isDev) console.error('Failed to load P&L data:', error)
         } finally {
             setLoading(false)
         }

@@ -1,5 +1,7 @@
 'use client'
 
+const isDev = process.env.NODE_ENV === 'development'
+
 // ===========================================
 // Glass Morphism Workspace Create Page
 // 워크스페이스 타입 선택 기능 포함
@@ -160,7 +162,7 @@ function WorkspaceCreateContent() {
       toast.success('회사가 생성되었습니다!')
       router.push('/dashboard')
     } catch (error: any) {
-      console.error('Failed to create workspace:', error)
+      if (isDev) console.error('Failed to create workspace:', error)
       toast.error(error.message || '회사 생성에 실패했습니다.')
     } finally {
       setLoading(false)
@@ -189,7 +191,7 @@ function WorkspaceCreateContent() {
       toast.success('워크스페이스에 참여했습니다!')
       router.push('/dashboard')
     } catch (error: any) {
-      console.error('Failed to join workspace:', error)
+      if (isDev) console.error('Failed to join workspace:', error)
       toast.error(error.message || '회사 참여에 실패했습니다.')
     } finally {
       setLoading(false)

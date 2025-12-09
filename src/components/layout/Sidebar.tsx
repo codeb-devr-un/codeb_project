@@ -1,4 +1,5 @@
 'use client'
+const isDev = process.env.NODE_ENV === 'development'
 
 import React, { useEffect, useState, useMemo } from 'react'
 import Link from 'next/link'
@@ -93,7 +94,7 @@ export default function Sidebar() {
         toast.error(error.error || '삭제 실패')
       }
     } catch (error) {
-      console.error('Failed to delete test data:', error)
+      if (isDev) console.error('Failed to delete test data:', error)
       toast.error('테스트 데이터 삭제 중 오류가 발생했습니다')
     } finally {
       setIsDeleting(false)
@@ -113,7 +114,7 @@ export default function Sidebar() {
           setProjects(data)
         }
       } catch (error) {
-        console.error('Failed to fetch projects:', error)
+      if (isDev) console.error('Failed to fetch projects:', error)
       }
     }
 

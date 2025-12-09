@@ -9,9 +9,13 @@ const createJestConfig = nextJest({
 const customJestConfig = {
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
   testEnvironment: 'jsdom',
-  moduleNameMapping: {
+  moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
+    '^nanoid$': '<rootDir>/node_modules/nanoid/index.cjs',
   },
+  transformIgnorePatterns: [
+    '/node_modules/(?!(nanoid)/)',
+  ],
   collectCoverageFrom: [
     'src/**/*.{js,jsx,ts,tsx}',
     '!src/**/*.d.ts',

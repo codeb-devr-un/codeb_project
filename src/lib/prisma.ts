@@ -297,8 +297,10 @@ export async function checkDatabaseHealth(): Promise<{
 // Query Performance Logging
 // =============================================================================
 
+const isDev = process.env.NODE_ENV === 'development'
+
 // CVE-CB-005: Query performance logging only in development
-if (process.env.DATABASE_LOGGING === 'true' && process.env.NODE_ENV === 'development') {
+if (process.env.DATABASE_LOGGING === 'true' && isDev) {
     prisma.$on('query' as never, (e: any) => {
         const duration = e.duration
         if (duration > 1000) {
@@ -313,7 +315,7 @@ if (process.env.DATABASE_LOGGING === 'true' && process.env.NODE_ENV === 'develop
 
 // CVE-CB-005: Graceful shutdown with development-only logging
 async function gracefulShutdown() {
-    if (process.env.NODE_ENV === 'development') {
+    if (isDev) {
         console.log('[DEV] Closing database connections...')
     }
     await prisma.$disconnect()

@@ -1,5 +1,7 @@
 'use client'
 
+const isDev = process.env.NODE_ENV === 'development'
+
 // ===========================================
 // Glass Morphism Groupware Page
 // ===========================================
@@ -35,7 +37,7 @@ export default function GroupwarePage() {
       setAnnouncements(await announcementsRes.json())
       setPosts(await postsRes.json())
     } catch (error) {
-      console.error('Failed to load data:', error)
+      if (isDev) console.error('Failed to load data:', error)
     } finally {
       setLoading(false)
     }

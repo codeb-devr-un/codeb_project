@@ -1,5 +1,7 @@
 "use client"
 
+const isDev = process.env.NODE_ENV === 'development'
+
 import React, { useState, useEffect } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -55,7 +57,7 @@ export default function AttendancePage() {
             const data = await response.json()
             setUserIP(data.ip)
         } catch (error) {
-            console.error('Failed to fetch IP:', error)
+            if (isDev) console.error('Failed to fetch IP:', error)
         }
     }
 
@@ -80,7 +82,7 @@ export default function AttendancePage() {
                 })
             }
         } catch (error) {
-            console.error('Failed to load settings:', error)
+            if (isDev) console.error('Failed to load settings:', error)
         }
     }
 
@@ -103,7 +105,7 @@ export default function AttendancePage() {
                 toast.error('설정 저장 실패')
             }
         } catch (error) {
-            console.error('Failed to save settings:', error)
+            if (isDev) console.error('Failed to save settings:', error)
             toast.error('설정 저장 중 오류가 발생했습니다')
         }
     }
@@ -121,7 +123,7 @@ export default function AttendancePage() {
             setTodayAttendance(data.today)
             setAttendanceHistory(data.history || [])
         } catch (error) {
-            console.error('Failed to load attendance:', error)
+            if (isDev) console.error('Failed to load attendance:', error)
         } finally {
             setLoading(false)
         }
@@ -156,7 +158,7 @@ export default function AttendancePage() {
             setIsPresenceCheckOpen(false)
             toast.success('근무 확인 완료')
         } catch (error) {
-            console.error('Presence check failed:', error)
+            if (isDev) console.error('Presence check failed:', error)
         }
     }
 
@@ -195,7 +197,7 @@ export default function AttendancePage() {
                 toast.error(data.error || '출근 처리 실패')
             }
         } catch (error) {
-            console.error('Check-in failed:', error)
+            if (isDev) console.error('Check-in failed:', error)
             toast.error('출근 처리 중 오류가 발생했습니다')
         }
     }
@@ -218,7 +220,7 @@ export default function AttendancePage() {
                 toast.error(data.error || '퇴근 처리 실패')
             }
         } catch (error) {
-            console.error('Check-out failed:', error)
+            if (isDev) console.error('Check-out failed:', error)
             toast.error('퇴근 처리 중 오류가 발생했습니다')
         }
     }

@@ -1,4 +1,5 @@
 'use client'
+const isDev = process.env.NODE_ENV === 'development'
 
 import React, { useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
@@ -200,12 +201,12 @@ export default function SettingsTab({ userId, workspaceId, isAdmin }: SettingsTa
     setSaving(true)
     try {
       // TODO: API 호출
-      console.log('Saving settings:', settings)
+      if (isDev) console.log('Saving settings:', settings)
       await new Promise(resolve => setTimeout(resolve, 1000))
       setHasChanges(false)
       alert('설정이 저장되었습니다.')
     } catch (error) {
-      console.error('Failed to save settings:', error)
+      if (isDev) console.error('Failed to save settings:', error)
       alert('저장 실패')
     } finally {
       setSaving(false)

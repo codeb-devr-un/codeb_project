@@ -44,3 +44,4 @@ next-env.d.ts
 storybook-static
 ._*
 deploy.tar.gz
+deploy-staging.sh
