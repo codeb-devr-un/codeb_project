@@ -28,12 +28,17 @@ import SettingsTab from '@/components/hr/SettingsTab'
 
 import { HRTab, UserRole } from '@/types/hr'
 
-const tabs = [
+// 기본 탭 (모든 사용자에게 표시)
+const baseTabs = [
   { id: 'attendance' as HRTab, label: '출근 관리', icon: Clock },
   { id: 'leave' as HRTab, label: '휴가 관리', icon: Plane },
   { id: 'profile' as HRTab, label: '인사기록', icon: FileText },
   { id: 'payroll' as HRTab, label: '급여', icon: DollarSign },
   { id: 'stats' as HRTab, label: '통계', icon: BarChart3 },
+]
+
+// 관리자 전용 탭
+const adminTabs = [
   { id: 'settings' as HRTab, label: '설정', icon: Settings }
 ]
 
@@ -88,6 +93,9 @@ export default function HRPage() {
 
   const isAdmin = userRole === 'admin' || userRole === 'hr'
 
+  // 권한에 따라 표시할 탭 결정
+  const visibleTabs = isAdmin ? [...baseTabs, ...adminTabs] : baseTabs
+
   if (!userId || !workspaceId) {
     return (
       <div className="flex items-center justify-center h-[calc(100vh-4rem)]">
@@ -118,9 +126,9 @@ export default function HRPage() {
         <h1 className="text-3xl font-bold tracking-tight text-slate-900">HR & 근태 관리</h1>
       </div>
 
-      {/* 탭 네비게이션 (Storyboard Design) */}
+      {/* 탭 네비게이션 (Storyboard Design) - 권한에 따라 탭 표시 */}
       <div className="bg-white/60 backdrop-blur-md p-1 rounded-2xl border border-white/40 w-auto inline-flex h-auto shadow-sm">
-        {tabs.map(tab => (
+        {visibleTabs.map(tab => (
           <button
             key={tab.id}
             className={`flex items-center gap-2 rounded-xl px-6 py-2.5 text-sm font-bold transition-all whitespace-nowrap ${
