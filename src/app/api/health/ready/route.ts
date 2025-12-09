@@ -1,10 +1,12 @@
-import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-
 // =============================================================================
 // Readiness Check API - Kubernetes Readiness Probe
 // Returns 200 only if all dependencies are healthy
 // =============================================================================
+
+export const dynamic = 'force-dynamic'
+
+import { NextResponse } from 'next/server'
+import { prisma } from '@/lib/prisma'
 
 interface HealthStatus {
   status: 'healthy' | 'unhealthy' | 'degraded'
