@@ -27,15 +27,11 @@ env:
   PRODUCTION_URL: https://workb.net
   STAGING_URL: https://workb-staging.codeb.dev
 
-# Prevent concurrent deployments
 concurrency:
   group: deploy-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  # ==========================================
-  # Lint & Type Check
-  # ==========================================
   lint:
     name: Lint & Type Check
     runs-on: self-hosted
@@ -74,9 +70,6 @@ jobs:
       - name: Run Type Check
         run: npm run type-check
 
-  # ==========================================
-  # Test
-  # ==========================================
   test:
     name: Run Tests
     runs-on: self-hosted
@@ -125,9 +118,6 @@ jobs:
           path: coverage/
           retention-days: 7
 
-  # ==========================================
-  # Build & Deploy (Self-hosted Runner)
-  # ==========================================
   build-deploy:
     name: Build & Deploy
     runs-on: self-hosted
@@ -180,18 +170,18 @@ jobs:
             echo "cpus=1" >> $GITHUB_OUTPUT
           fi
 
-      - name: Cache Podman layers
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.local/share/containers
-          key: podman-${{ runner.os }}-${{ hashFiles('Dockerfile', 'package-lock.json') }}
-          restore-keys: |
-            podman-${{ runner.os }}-
+      - name: Ensure network exists
+        run: |
+          NETWORK_NAME="workb-network"
+          if ! podman network exists ${NETWORK_NAME} 2>/dev/null; then
+            echo "Creating network ${NETWORK_NAME}..."
+            podman network create ${NETWORK_NAME} || true
+          fi
+          echo "Network ${NETWORK_NAME} is ready"
 
       - name: Build image with Podman
         run: |
-          echo "🔨 Building image for ${{ steps.env.outputs.environment }}..."
+          echo "Building image for ${{ steps.env.outputs.environment }}..."
           podman build \
             --build-arg BUILDTIME=$(date -Iseconds) \
             --build-arg VERSION=${{ github.sha }} \
@@ -200,18 +190,10 @@ jobs:
             -t localhost/${{ env.APP_NAME }}:${{ steps.vars.outputs.image_tag }} \
             -t localhost/${{ env.APP_NAME }}:${{ github.sha }} \
             .
-          echo "✅ Build complete!"
+          echo "Build complete!"
+          podman images | grep ${{ env.APP_NAME }}
 
-      - name: Ensure network exists
-        run: |
-          NETWORK_NAME="workb-network"
-          if ! podman network exists ${NETWORK_NAME} 2>/dev/null; then
-            echo "🔧 Creating network ${NETWORK_NAME}..."
-            podman network create ${NETWORK_NAME} || true
-          fi
-          echo "✅ Network ${NETWORK_NAME} is ready"
-
-      - name: Update Quadlet configuration
+      - name: Create Quadlet configuration
         run: |
           CONTAINER_NAME="${{ steps.vars.outputs.container_name }}"
           PORT="${{ steps.vars.outputs.port }}"
@@ -221,99 +203,156 @@ jobs:
           CPUS="${{ steps.vars.outputs.cpus }}"
           APP_NAME="${{ env.APP_NAME }}"
 
-          cat > /etc/containers/systemd/${CONTAINER_NAME}.container << EOF
-          [Unit]
-          Description=WorkB CMS Container (${ENV})
-          After=network-online.target
-          Wants=network-online.target
-          After=workb-cms-postgres.service
-          After=workb-cms-redis.service
+          mkdir -p /etc/containers/systemd
 
-          [Container]
-          ContainerName=${CONTAINER_NAME}
-          Image=localhost/${APP_NAME}:${IMAGE_TAG}
-          PublishPort=${PORT}:3000
-          Environment=NODE_ENV=${ENV}
-          Environment=PORT=3000
-          Environment=HOSTNAME=0.0.0.0
-          EnvironmentFile=/etc/containers/systemd/${CONTAINER_NAME}.env
-          HealthCmd=curl -sf http://localhost:3000/api/health || exit 1
-          HealthInterval=30s
-          HealthTimeout=10s
-          HealthRetries=3
-          HealthStartPeriod=60s
-          PodmanArgs=--memory=${MEMORY} --cpus=${CPUS}
-          Network=workb-network
-          LogDriver=journald
+          # Create Quadlet file using printf to avoid heredoc issues
+          printf '%s\n' \
+            "[Unit]" \
+            "Description=WorkB CMS Container (${ENV})" \
+            "After=network-online.target" \
+            "Wants=network-online.target" \
+            "" \
+            "[Container]" \
+            "ContainerName=${CONTAINER_NAME}" \
+            "Image=localhost/${APP_NAME}:${IMAGE_TAG}" \
+            "PublishPort=${PORT}:3000" \
+            "Network=workb-network" \
+            "Environment=NODE_ENV=${ENV}" \
+            "Environment=PORT=3000" \
+            "Environment=HOSTNAME=0.0.0.0" \
+            "EnvironmentFile=/etc/containers/systemd/${CONTAINER_NAME}.env" \
+            "HealthCmd=curl -sf http://localhost:3000/api/health || exit 1" \
+            "HealthInterval=30s" \
+            "HealthTimeout=10s" \
+            "HealthRetries=3" \
+            "HealthStartPeriod=60s" \
+            "PodmanArgs=--memory=${MEMORY} --cpus=${CPUS}" \
+            "" \
+            "[Service]" \
+            "Restart=always" \
+            "RestartSec=10" \
+            "TimeoutStartSec=300" \
+            "" \
+            "[Install]" \
+            "WantedBy=multi-user.target default.target" \
+            > /etc/containers/systemd/${CONTAINER_NAME}.container
 
-          [Service]
-          Restart=always
-          RestartSec=10
-          TimeoutStartSec=300
+          echo "Quadlet config created:"
+          cat /etc/containers/systemd/${CONTAINER_NAME}.container
 
-          [Install]
-          WantedBy=multi-user.target default.target
-          EOF
+      - name: Verify env file exists
+        run: |
+          CONTAINER_NAME="${{ steps.vars.outputs.container_name }}"
+          ENV_FILE="/etc/containers/systemd/${CONTAINER_NAME}.env"
 
-          echo "✅ Quadlet config updated for ${CONTAINER_NAME}"
+          if [ ! -f "$ENV_FILE" ]; then
+            echo "Warning: Env file not found: $ENV_FILE"
+            echo "Creating minimal env file..."
+            printf '%s\n' \
+              "# WorkB CMS Environment" \
+              "NODE_ENV=production" \
+              "PORT=3000" \
+              > "$ENV_FILE"
+            echo "Please update $ENV_FILE with proper values!"
+          else
+            echo "Env file exists: $ENV_FILE"
+            echo "Env file contents (sensitive values hidden):"
+            grep -v -E "(PASSWORD|SECRET|KEY|TOKEN)" "$ENV_FILE" || true
+          fi
 
-      - name: Deploy container
+      - name: Stop existing container
+        run: |
+          CONTAINER_NAME="${{ steps.vars.outputs.container_name }}"
+          echo "Stopping existing container..."
+          systemctl stop ${CONTAINER_NAME}.service 2>/dev/null || true
+          systemctl reset-failed ${CONTAINER_NAME}.service 2>/dev/null || true
+          podman stop ${CONTAINER_NAME} 2>/dev/null || true
+          podman rm -f ${CONTAINER_NAME} 2>/dev/null || true
+          echo "Existing container stopped"
+
+      - name: Reload systemd and start service
         id: deploy
         run: |
           CONTAINER_NAME="${{ steps.vars.outputs.container_name }}"
-          echo "🚀 Deploying ${CONTAINER_NAME}..."
-          systemctl daemon-reload
-          podman stop ${CONTAINER_NAME} 2>/dev/null || true
-          podman rm ${CONTAINER_NAME} 2>/dev/null || true
-          systemctl reset-failed ${CONTAINER_NAME}.service 2>/dev/null || true
+          echo "Deploying ${CONTAINER_NAME}..."
 
-          if ! systemctl restart ${CONTAINER_NAME}.service; then
-            echo "❌ Service failed to start!"
+          systemctl daemon-reload
+
+          echo "Available service files:"
+          ls -la /run/systemd/generator/${CONTAINER_NAME}.service 2>/dev/null || echo "No generated service yet"
+
+          if ! systemctl start ${CONTAINER_NAME}.service; then
+            echo "Service failed to start!"
+            echo ""
             echo "=== systemctl status ==="
-            systemctl status ${CONTAINER_NAME}.service --no-pager || true
+            systemctl status ${CONTAINER_NAME}.service --no-pager -l || true
+            echo ""
             echo "=== journalctl logs ==="
             journalctl -xeu ${CONTAINER_NAME}.service --no-pager -n 100 || true
+            echo ""
             echo "=== Quadlet file ==="
             cat /etc/containers/systemd/${CONTAINER_NAME}.container || true
-            echo "=== Env file ==="
-            cat /etc/containers/systemd/${CONTAINER_NAME}.env 2>/dev/null | grep -v PASSWORD | grep -v SECRET || echo "No env file found"
+            echo ""
+            echo "=== Env file (sanitized) ==="
+            grep -v -E "(PASSWORD|SECRET|KEY|TOKEN)" /etc/containers/systemd/${CONTAINER_NAME}.env 2>/dev/null || echo "No env file"
+            echo ""
+            echo "=== Podman images ==="
+            podman images | grep ${{ env.APP_NAME }} || true
             exit 1
           fi
 
-          echo "⏳ Waiting for container to start..."
-          sleep 20
+          echo "Waiting for container to initialize..."
+          sleep 15
 
       - name: Verify deployment
         run: |
           CONTAINER_NAME="${{ steps.vars.outputs.container_name }}"
           PORT="${{ steps.vars.outputs.port }}"
-          MAX_RETRIES=5
+          MAX_RETRIES=10
           RETRY_COUNT=0
 
-          if ! podman ps | grep -q ${CONTAINER_NAME}; then
-            echo "❌ Container failed to start!"
-            podman logs ${CONTAINER_NAME} 2>&1 | tail -100
+          echo "Container status:"
+          podman ps -a | grep ${CONTAINER_NAME} || true
+
+          if ! podman ps --format "{{.Names}}" | grep -q "^${CONTAINER_NAME}$"; then
+            echo "Container is not running!"
+            echo ""
+            echo "=== Container logs ==="
+            podman logs ${CONTAINER_NAME} 2>&1 | tail -100 || true
+            echo ""
+            echo "=== Podman inspect ==="
+            podman inspect ${CONTAINER_NAME} 2>&1 | tail -50 || true
             exit 1
           fi
 
-          echo "✅ Container ${CONTAINER_NAME} is running!"
+          echo "Container ${CONTAINER_NAME} is running!"
+          echo ""
+          echo "Waiting for health check..."
 
           while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-            sleep 5
+            sleep 3
             response=$(curl -sf -o /dev/null -w "%{http_code}" http://localhost:${PORT}/api/health 2>/dev/null || echo "000")
             if [ "$response" = "200" ]; then
-              echo "✅ Health check passed!"
+              echo "Health check passed! (attempt $((RETRY_COUNT + 1)))"
               break
             fi
             RETRY_COUNT=$((RETRY_COUNT + 1))
-            echo "⏳ Health check attempt $RETRY_COUNT/$MAX_RETRIES (status: $response)"
+            echo "Health check attempt $RETRY_COUNT/$MAX_RETRIES (status: $response)"
           done
 
           if [ "$response" != "200" ]; then
-            echo "⚠️ Health check did not return 200 after $MAX_RETRIES attempts"
+            echo "Health check failed after $MAX_RETRIES attempts"
             echo "Last response: $response"
-            podman logs ${CONTAINER_NAME} 2>&1 | tail -50
+            echo ""
+            echo "=== Container logs ==="
+            podman logs ${CONTAINER_NAME} 2>&1 | tail -100
           fi
+
+      - name: Enable service on boot
+        run: |
+          CONTAINER_NAME="${{ steps.vars.outputs.container_name }}"
+          systemctl enable ${CONTAINER_NAME}.service 2>/dev/null || true
+          echo "Service enabled for auto-start"
 
       - name: Show deployment info
         if: always()
@@ -321,32 +360,37 @@ jobs:
           ENV="${{ steps.env.outputs.environment }}"
           PORT="${{ steps.vars.outputs.port }}"
           URL="${{ steps.vars.outputs.url }}"
+          CONTAINER_NAME="${{ steps.vars.outputs.container_name }}"
+
           echo ""
           echo "=========================================="
-          echo "📦 Deployment Summary"
+          echo "Deployment Summary"
           echo "=========================================="
           echo "Environment: ${ENV}"
-          echo "Container: ${{ steps.vars.outputs.container_name }}"
+          echo "Container: ${CONTAINER_NAME}"
           echo "Image: localhost/${{ env.APP_NAME }}:${{ steps.vars.outputs.image_tag }}"
           echo "Port: ${PORT}"
           echo "Commit: ${{ github.sha }}"
           echo "Branch: ${{ github.ref_name }}"
           echo ""
-          echo "🌐 URL: ${URL}"
+          echo "URL: ${URL}"
+          echo ""
+          echo "=== Service Status ==="
+          systemctl is-active ${CONTAINER_NAME}.service || true
+          echo ""
+          echo "=== Running Containers ==="
+          podman ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep -E "(NAMES|${{ env.APP_NAME }})" || true
 
       - name: Cleanup old images
         if: success()
         run: |
-          echo "🧹 Cleaning up old images..."
+          echo "Cleaning up old images..."
           podman images localhost/${{ env.APP_NAME }} --format "{{.ID}} {{.CreatedAt}}" | \
             sort -k2 -r | tail -n +6 | awk '{print $1}' | \
             xargs -r podman rmi 2>/dev/null || true
           podman image prune -f 2>/dev/null || true
-          echo "✅ Cleanup complete!"
+          echo "Cleanup complete!"
 
-  # ==========================================
-  # Notify on Success/Failure
-  # ==========================================
   notify:
     name: Send Notification
     runs-on: self-hosted
@@ -357,12 +401,12 @@ jobs:
       - name: Deployment Success Notification
         if: needs.build-deploy.result == 'success'
         run: |
-          echo "✅ Deployment successful!"
+          echo "Deployment successful!"
           echo "Environment: ${{ needs.build-deploy.outputs.environment }}"
           echo "URL: ${{ needs.build-deploy.outputs.url }}"
 
       - name: Deployment Failure Notification
         if: needs.build-deploy.result == 'failure'
         run: |
-          echo "❌ Deployment failed!"
+          echo "Deployment failed!"
           echo "Check logs at: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
