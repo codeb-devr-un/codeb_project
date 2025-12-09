@@ -2,12 +2,35 @@
 
 import { useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
+import { useWorkspace } from '@/lib/workspace-context';
 
 export default function JoinRequestSuccessPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { refreshWorkspaces } = useWorkspace();
   const workspaceId = searchParams?.get('workspace');
   const [countdown, setCountdown] = useState(10);
+  const [refreshed, setRefreshed] = useState(false);
+
+  // 가입 성공 후 워크스페이스 목록 새로고침
+  useEffect(() => {
+    const refreshAndSetWorkspace = async () => {
+      if (refreshed) return;
+      setRefreshed(true);
+
+      try {
+        await refreshWorkspaces();
+        // 새로 가입한 워크스페이스를 현재 워크스페이스로 설정
+        if (workspaceId) {
+          localStorage.setItem('currentWorkspaceId', workspaceId);
+        }
+      } catch (error) {
+        console.error('Failed to refresh workspaces:', error);
+      }
+    };
+
+    refreshAndSetWorkspace();
+  }, [refreshWorkspaces, workspaceId, refreshed]);
 
   useEffect(() => {
     const timer = setInterval(() => {

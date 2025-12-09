@@ -44,7 +44,7 @@ const adminTabs = [
 
 export default function HRPage() {
   const { user, userProfile } = useAuth()
-  const { currentWorkspace, isAdmin: workspaceIsAdmin } = useWorkspace()
+  const { currentWorkspace, isAdmin: workspaceIsAdmin, loading: workspaceLoading } = useWorkspace()
 
   const [activeTab, setActiveTab] = useState<HRTab>('attendance')
   const [loading, setLoading] = useState(true)
@@ -96,7 +96,17 @@ export default function HRPage() {
   // 권한에 따라 표시할 탭 결정
   const visibleTabs = isAdmin ? [...baseTabs, ...adminTabs] : baseTabs
 
-  if (!userId || !workspaceId) {
+  // 워크스페이스 로딩 중
+  if (workspaceLoading) {
+    return (
+      <div className="flex items-center justify-center h-[calc(100vh-4rem)]">
+        <Loader2 className="w-8 h-8 animate-spin text-lime-400" />
+      </div>
+    )
+  }
+
+  // 로그인 필요
+  if (!userId) {
     return (
       <div className="flex items-center justify-center h-[calc(100vh-4rem)]">
         <Card className="bg-white/60 backdrop-blur-xl border-white/40 p-8 rounded-3xl shadow-lg">
@@ -104,6 +114,27 @@ export default function HRPage() {
             <Users className="w-12 h-12 text-slate-400 mx-auto mb-4" />
             <h2 className="text-slate-900 text-xl mb-2">로그인이 필요합니다</h2>
             <p className="text-slate-500">HR 기능을 사용하려면 먼저 로그인해주세요</p>
+          </div>
+        </Card>
+      </div>
+    )
+  }
+
+  // 워크스페이스 선택 필요
+  if (!workspaceId) {
+    return (
+      <div className="flex items-center justify-center h-[calc(100vh-4rem)]">
+        <Card className="bg-white/60 backdrop-blur-xl border-white/40 p-8 rounded-3xl shadow-lg">
+          <div className="text-center">
+            <Users className="w-12 h-12 text-slate-400 mx-auto mb-4" />
+            <h2 className="text-slate-900 text-xl mb-2">워크스페이스를 선택해주세요</h2>
+            <p className="text-slate-500">HR 기능을 사용하려면 워크스페이스에 가입해야 합니다</p>
+            <Button
+              onClick={() => window.location.href = '/workspaces/join'}
+              className="mt-4 bg-lime-400 text-slate-900 hover:bg-lime-500"
+            >
+              워크스페이스 찾기
+            </Button>
           </div>
         </Card>
       </div>
