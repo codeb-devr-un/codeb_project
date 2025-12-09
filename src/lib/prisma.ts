@@ -27,6 +27,12 @@ const getPrismaConfig = (): PrismaConfig => ({
 // =============================================================================
 
 const createPrismaClient = () => {
+    // Skip Prisma initialization during build time if DATABASE_URL is not set
+    if (!process.env.DATABASE_URL) {
+        console.warn('DATABASE_URL is not set. Prisma client will not be initialized.')
+        return null as unknown as PrismaClient
+    }
+
     const config = getPrismaConfig()
 
     return new PrismaClient({
