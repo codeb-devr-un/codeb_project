@@ -202,6 +202,15 @@ jobs:
             .
           echo "✅ Build complete!"
 
+      - name: Ensure network exists
+        run: |
+          NETWORK_NAME="workb-network"
+          if ! podman network exists ${NETWORK_NAME} 2>/dev/null; then
+            echo "🔧 Creating network ${NETWORK_NAME}..."
+            podman network create ${NETWORK_NAME} || true
+          fi
+          echo "✅ Network ${NETWORK_NAME} is ready"
+
       - name: Update Quadlet configuration
         run: |
           CONTAINER_NAME="${{ steps.vars.outputs.container_name }}"
