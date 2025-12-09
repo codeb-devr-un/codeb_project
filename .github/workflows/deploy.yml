@@ -3,6 +3,8 @@ name: Deploy WorkB CMS
 on:
   push:
     branches: [main, develop]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
     inputs:
       environment:
@@ -13,17 +15,135 @@ on:
         options:
           - staging
           - production
+      skip_tests:
+        description: 'Skip tests'
+        required: false
+        default: false
+        type: boolean
 
 env:
   APP_NAME: workb-cms
+  NODE_VERSION: '20'
+  PRODUCTION_URL: https://workb.net
+  STAGING_URL: https://workb-staging.codeb.dev
+
+# Prevent concurrent deployments
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
+  # ==========================================
+  # Lint & Type Check
+  # ==========================================
+  lint:
+    name: Lint & Type Check
+    runs-on: self-hosted
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        id: cache-deps
+        with:
+          path: |
+            node_modules
+            ~/.npm
+          key: deps-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            deps-${{ runner.os }}-
+
+      - name: Install dependencies
+        if: steps.cache-deps.outputs.cache-hit != 'true'
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Run ESLint
+        run: npm run lint
+
+      - name: Run Type Check
+        run: npm run type-check
+
+  # ==========================================
+  # Test
+  # ==========================================
+  test:
+    name: Run Tests
+    runs-on: self-hosted
+    needs: lint
+    if: |
+      (github.event_name == 'pull_request' || github.event_name == 'push') &&
+      github.event.inputs.skip_tests != 'true'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        id: cache-deps
+        with:
+          path: |
+            node_modules
+            ~/.npm
+          key: deps-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            deps-${{ runner.os }}-
+
+      - name: Install dependencies
+        if: steps.cache-deps.outputs.cache-hit != 'true'
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Run Tests
+        run: npm test -- --passWithNoTests --coverage
+        env:
+          NODE_ENV: test
+
+      - name: Upload Coverage
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 7
+
   # ==========================================
   # Build & Deploy (Self-hosted Runner)
   # ==========================================
   build-deploy:
     name: Build & Deploy
     runs-on: self-hosted
+    needs: [lint, test]
+    if: |
+      always() &&
+      (needs.lint.result == 'success' || needs.lint.result == 'skipped') &&
+      (needs.test.result == 'success' || needs.test.result == 'skipped') &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+      (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+
+    outputs:
+      environment: ${{ steps.env.outputs.environment }}
+      container_name: ${{ steps.vars.outputs.container_name }}
+      port: ${{ steps.vars.outputs.port }}
+      url: ${{ steps.vars.outputs.url }}
 
     steps:
       - name: Checkout code
@@ -48,19 +168,35 @@ jobs:
             echo "container_name=${{ env.APP_NAME }}" >> $GITHUB_OUTPUT
             echo "port=3200" >> $GITHUB_OUTPUT
             echo "image_tag=latest" >> $GITHUB_OUTPUT
+            echo "url=${{ env.PRODUCTION_URL }}" >> $GITHUB_OUTPUT
+            echo "memory=2g" >> $GITHUB_OUTPUT
+            echo "cpus=2" >> $GITHUB_OUTPUT
           else
             echo "container_name=${{ env.APP_NAME }}-staging" >> $GITHUB_OUTPUT
             echo "port=3201" >> $GITHUB_OUTPUT
             echo "image_tag=staging" >> $GITHUB_OUTPUT
+            echo "url=${{ env.STAGING_URL }}" >> $GITHUB_OUTPUT
+            echo "memory=1g" >> $GITHUB_OUTPUT
+            echo "cpus=1" >> $GITHUB_OUTPUT
           fi
+
+      - name: Cache Podman layers
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.local/share/containers
+          key: podman-${{ runner.os }}-${{ hashFiles('Dockerfile', 'package-lock.json') }}
+          restore-keys: |
+            podman-${{ runner.os }}-
 
       - name: Build image with Podman
         run: |
-          echo "🔨 Building image..."
+          echo "🔨 Building image for ${{ steps.env.outputs.environment }}..."
           podman build \
             --build-arg BUILDTIME=$(date -Iseconds) \
             --build-arg VERSION=${{ github.sha }} \
             --build-arg REVISION=${{ github.sha }} \
+            --layers \
             -t localhost/${{ env.APP_NAME }}:${{ steps.vars.outputs.image_tag }} \
             -t localhost/${{ env.APP_NAME }}:${{ github.sha }} \
             .
@@ -72,21 +208,38 @@ jobs:
           PORT="${{ steps.vars.outputs.port }}"
           IMAGE_TAG="${{ steps.vars.outputs.image_tag }}"
           ENV="${{ steps.env.outputs.environment }}"
+          MEMORY="${{ steps.vars.outputs.memory }}"
+          CPUS="${{ steps.vars.outputs.cpus }}"
+          APP_NAME="${{ env.APP_NAME }}"
 
-          # Create/update Quadlet container file
           cat > /etc/containers/systemd/${CONTAINER_NAME}.container << EOF
           [Unit]
           Description=WorkB CMS Container (${ENV})
           After=network-online.target
+          Wants=network-online.target
+          After=workb-cms-postgres.service
+          After=workb-cms-redis.service
 
           [Container]
-          Image=localhost/${{ env.APP_NAME }}:${IMAGE_TAG}
           ContainerName=${CONTAINER_NAME}
+          Image=localhost/${APP_NAME}:${IMAGE_TAG}
           PublishPort=${PORT}:3000
+          Environment=NODE_ENV=${ENV}
+          Environment=PORT=3000
+          Environment=HOSTNAME=0.0.0.0
           EnvironmentFile=/etc/containers/systemd/${CONTAINER_NAME}.env
+          HealthCmd=curl -sf http://localhost:3000/api/health || exit 1
+          HealthInterval=30s
+          HealthTimeout=10s
+          HealthRetries=3
+          HealthStartPeriod=60s
+          PodmanArgs=--memory=${MEMORY} --cpus=${CPUS}
+          Network=workb-network
+          LogDriver=journald
 
           [Service]
           Restart=always
+          RestartSec=10
           TimeoutStartSec=300
 
           [Install]
@@ -96,47 +249,48 @@ jobs:
           echo "✅ Quadlet config updated for ${CONTAINER_NAME}"
 
       - name: Deploy container
+        id: deploy
         run: |
           CONTAINER_NAME="${{ steps.vars.outputs.container_name }}"
-
           echo "🚀 Deploying ${CONTAINER_NAME}..."
-
-          # Reload systemd and restart service
           systemctl daemon-reload
-
-          # Stop old container if exists
           podman stop ${CONTAINER_NAME} 2>/dev/null || true
           podman rm ${CONTAINER_NAME} 2>/dev/null || true
-
-          # Reset failed state and restart
           systemctl reset-failed ${CONTAINER_NAME}.service 2>/dev/null || true
           systemctl restart ${CONTAINER_NAME}.service
-
           echo "⏳ Waiting for container to start..."
-          sleep 15
+          sleep 20
 
       - name: Verify deployment
         run: |
           CONTAINER_NAME="${{ steps.vars.outputs.container_name }}"
           PORT="${{ steps.vars.outputs.port }}"
+          MAX_RETRIES=5
+          RETRY_COUNT=0
 
-          # Check container is running
-          if podman ps | grep -q ${CONTAINER_NAME}; then
-            echo "✅ Container ${CONTAINER_NAME} is running!"
-          else
+          if ! podman ps | grep -q ${CONTAINER_NAME}; then
             echo "❌ Container failed to start!"
-            podman logs ${CONTAINER_NAME} 2>&1 | tail -50
+            podman logs ${CONTAINER_NAME} 2>&1 | tail -100
             exit 1
           fi
 
-          # Health check
-          sleep 5
-          response=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:${PORT}/api/health || echo "000")
-          if [ "$response" = "200" ]; then
-            echo "✅ Health check passed!"
-          else
-            echo "⚠️ Health check returned: $response"
-            podman logs ${CONTAINER_NAME} 2>&1 | tail -30
+          echo "✅ Container ${CONTAINER_NAME} is running!"
+
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            sleep 5
+            response=$(curl -sf -o /dev/null -w "%{http_code}" http://localhost:${PORT}/api/health 2>/dev/null || echo "000")
+            if [ "$response" = "200" ]; then
+              echo "✅ Health check passed!"
+              break
+            fi
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+            echo "⏳ Health check attempt $RETRY_COUNT/$MAX_RETRIES (status: $response)"
+          done
+
+          if [ "$response" != "200" ]; then
+            echo "⚠️ Health check did not return 200 after $MAX_RETRIES attempts"
+            echo "Last response: $response"
+            podman logs ${CONTAINER_NAME} 2>&1 | tail -50
           fi
 
       - name: Show deployment info
@@ -144,7 +298,7 @@ jobs:
         run: |
           ENV="${{ steps.env.outputs.environment }}"
           PORT="${{ steps.vars.outputs.port }}"
-
+          URL="${{ steps.vars.outputs.url }}"
           echo ""
           echo "=========================================="
           echo "📦 Deployment Summary"
@@ -154,20 +308,39 @@ jobs:
           echo "Image: localhost/${{ env.APP_NAME }}:${{ steps.vars.outputs.image_tag }}"
           echo "Port: ${PORT}"
           echo "Commit: ${{ github.sha }}"
+          echo "Branch: ${{ github.ref_name }}"
           echo ""
-
-          if [ "${ENV}" = "production" ]; then
-            echo "🌐 URL: https://workb.net"
-          else
-            echo "🌐 URL: http://141.164.60.51:${PORT}"
-          fi
+          echo "🌐 URL: ${URL}"
 
       - name: Cleanup old images
         if: success()
         run: |
           echo "🧹 Cleaning up old images..."
-          # Keep last 3 versions
           podman images localhost/${{ env.APP_NAME }} --format "{{.ID}} {{.CreatedAt}}" | \
-            sort -k2 -r | tail -n +4 | awk '{print $1}' | \
+            sort -k2 -r | tail -n +6 | awk '{print $1}' | \
             xargs -r podman rmi 2>/dev/null || true
+          podman image prune -f 2>/dev/null || true
           echo "✅ Cleanup complete!"
+
+  # ==========================================
+  # Notify on Success/Failure
+  # ==========================================
+  notify:
+    name: Send Notification
+    runs-on: self-hosted
+    needs: build-deploy
+    if: always() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+
+    steps:
+      - name: Deployment Success Notification
+        if: needs.build-deploy.result == 'success'
+        run: |
+          echo "✅ Deployment successful!"
+          echo "Environment: ${{ needs.build-deploy.outputs.environment }}"
+          echo "URL: ${{ needs.build-deploy.outputs.url }}"
+
+      - name: Deployment Failure Notification
+        if: needs.build-deploy.result == 'failure'
+        run: |
+          echo "❌ Deployment failed!"
+          echo "Check logs at: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"

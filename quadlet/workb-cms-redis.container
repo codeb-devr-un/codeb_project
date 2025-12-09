@@ -14,29 +14,36 @@ PublishPort=6380:6379
 # Volume for data persistence
 Volume=workb-cms-redis-data:/data:Z
 
-# Health check
-HealthCmd=redis-cli ping | grep PONG
+# Health check (improved)
+HealthCmd=redis-cli ping | grep -q PONG
 HealthInterval=30s
 HealthTimeout=10s
 HealthRetries=3
 HealthStartPeriod=10s
 
 # Resource limits
-PodmanArgs=--memory=512m --cpus=0.5
+PodmanArgs=--memory=512m --memory-swap=768m --cpus=0.5
 
 # Redis configuration
-Exec=redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+Exec=redis-server --appendonly yes --maxmemory 384mb --maxmemory-policy allkeys-lru --save 60 1000
 
-# Network
-Network=workb-network
+# Network with static IP
+Network=workb-network:ip=10.89.1.11
 
 # Logging
 LogDriver=journald
+
+# Security
+NoNewPrivileges=true
 
 [Service]
 Restart=always
 RestartSec=10
 TimeoutStartSec=60
+TimeoutStopSec=30
+
+# Graceful shutdown
+ExecStop=/usr/bin/podman stop -t 30 %n
 
 [Install]
 WantedBy=multi-user.target default.target
