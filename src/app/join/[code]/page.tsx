@@ -77,7 +77,14 @@ export default function JoinByCodePage({ params }: { params: { code: string } })
       }
 
       const data = await response.json()
-      setWorkspace(data)
+      // search API returns { workspace: {...} } format
+      const workspaceData = data.workspace || data
+      setWorkspace({
+        id: workspaceData.id,
+        name: workspaceData.name,
+        memberCount: workspaceData._count?.members || workspaceData.memberCount || 0,
+        isPublic: workspaceData.isPublic
+      })
     } catch (err: any) {
       setError(err.message)
     } finally {
