@@ -204,6 +204,7 @@ export default function ChatInput({ onSend, onTyping, disabled }: ChatInputProps
             onClick={() => fileInputRef.current?.click()}
             className="absolute right-3 bottom-3 text-gray-400 hover:text-gray-600 transition-colors"
             disabled={disabled}
+            aria-label="파일 첨부"
           >
             📎
           </button>
@@ -212,10 +213,11 @@ export default function ChatInput({ onSend, onTyping, disabled }: ChatInputProps
         <motion.button
           type="submit"
           disabled={(!message.trim() && attachedFiles.length === 0) || disabled}
+          aria-label="전송"
           className={`
             p-3 rounded-full transition-all
             ${(message.trim() || attachedFiles.length > 0) && !disabled
-              ? 'bg-primary text-white hover:bg-primary-hover' 
+              ? 'bg-primary text-white hover:bg-primary-hover'
               : 'bg-gray-200 text-gray-400 cursor-not-allowed'
             }
           `}

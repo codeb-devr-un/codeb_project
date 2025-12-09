@@ -3,16 +3,23 @@
  * Tests for core task management functionality
  */
 
-// Mock dependencies first
+// Create mock functions first
+const mockFindMany = jest.fn()
+const mockCreate = jest.fn()
+const mockUpdate = jest.fn()
+const mockDelete = jest.fn()
+const mockTransaction = jest.fn()
+
+// Mock dependencies before imports
 jest.mock('@/lib/prisma', () => ({
   prisma: {
     task: {
-      findMany: jest.fn(),
-      create: jest.fn(),
-      update: jest.fn(),
-      delete: jest.fn(),
+      findMany: mockFindMany,
+      create: mockCreate,
+      update: mockUpdate,
+      delete: mockDelete,
     },
-    $transaction: jest.fn(),
+    $transaction: mockTransaction,
   }
 }))
 
@@ -32,8 +39,6 @@ jest.mock('@/lib/security', () => ({
     error: jest.fn()
   }
 }))
-
-import { prisma } from '@/lib/prisma'
 
 describe('Task Server Actions', () => {
   const mockProjectId = 'project-123'
@@ -65,16 +70,22 @@ describe('Task Server Actions', () => {
 
   beforeEach(() => {
     jest.clearAllMocks()
+    // Reset all mock implementations
+    mockFindMany.mockReset()
+    mockCreate.mockReset()
+    mockUpdate.mockReset()
+    mockDelete.mockReset()
+    mockTransaction.mockReset()
   })
 
   describe('getTasks', () => {
     it('should return tasks for a project', async () => {
-      const { getTasks } = await import('../task')
-      ;(prisma.task.findMany as jest.Mock).mockResolvedValue([mockTask])
+      mockFindMany.mockResolvedValue([mockTask])
 
+      const { getTasks } = await import('../task')
       const result = await getTasks(mockProjectId)
 
-      expect(prisma.task.findMany).toHaveBeenCalledWith(
+      expect(mockFindMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { projectId: mockProjectId }
         })
@@ -84,18 +95,18 @@ describe('Task Server Actions', () => {
     })
 
     it('should return empty array on error', async () => {
-      const { getTasks } = await import('../task')
-      ;(prisma.task.findMany as jest.Mock).mockRejectedValue(new Error('Database error'))
+      mockFindMany.mockRejectedValue(new Error('Database error'))
 
+      const { getTasks } = await import('../task')
       const result = await getTasks(mockProjectId)
 
       expect(result).toEqual([])
     })
 
     it('should map dates to ISO strings', async () => {
-      const { getTasks } = await import('../task')
-      ;(prisma.task.findMany as jest.Mock).mockResolvedValue([mockTask])
+      mockFindMany.mockResolvedValue([mockTask])
 
+      const { getTasks } = await import('../task')
       const result = await getTasks(mockProjectId)
 
       expect(result[0].startDate).toBe('2024-01-01T00:00:00.000Z')
@@ -105,9 +116,9 @@ describe('Task Server Actions', () => {
 
   describe('createTask', () => {
     it('should create a new task', async () => {
-      const { createTask } = await import('../task')
-      ;(prisma.task.create as jest.Mock).mockResolvedValue(mockTask)
+      mockCreate.mockResolvedValue(mockTask)
 
+      const { createTask } = await import('../task')
       const newTaskData = {
         title: 'Test Task',
         description: 'Test Description',
@@ -122,13 +133,13 @@ describe('Task Server Actions', () => {
 
       expect(result.success).toBe(true)
       expect(result.task).toBeDefined()
-      expect(prisma.task.create).toHaveBeenCalled()
+      expect(mockCreate).toHaveBeenCalled()
     })
 
     it('should handle creation errors', async () => {
-      const { createTask } = await import('../task')
-      ;(prisma.task.create as jest.Mock).mockRejectedValue(new Error('Creation failed'))
+      mockCreate.mockRejectedValue(new Error('Creation failed'))
 
+      const { createTask } = await import('../task')
       const result = await createTask(mockProjectId, {
         title: 'Test',
         createdBy: mockUserId
@@ -141,14 +152,14 @@ describe('Task Server Actions', () => {
 
   describe('updateTask', () => {
     it('should update an existing task', async () => {
-      const { updateTask } = await import('../task')
       const updatedTask = { ...mockTask, title: 'Updated Title' }
-      ;(prisma.task.update as jest.Mock).mockResolvedValue(updatedTask)
+      mockUpdate.mockResolvedValue(updatedTask)
 
+      const { updateTask } = await import('../task')
       const result = await updateTask('task-1', { title: 'Updated Title' })
 
       expect(result.success).toBe(true)
-      expect(prisma.task.update).toHaveBeenCalledWith(
+      expect(mockUpdate).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: 'task-1' }
         })
@@ -156,9 +167,9 @@ describe('Task Server Actions', () => {
     })
 
     it('should handle update errors', async () => {
-      const { updateTask } = await import('../task')
-      ;(prisma.task.update as jest.Mock).mockRejectedValue(new Error('Update failed'))
+      mockUpdate.mockRejectedValue(new Error('Update failed'))
 
+      const { updateTask } = await import('../task')
       const result = await updateTask('task-1', { title: 'Updated' })
 
       expect(result.success).toBe(false)
@@ -168,21 +179,21 @@ describe('Task Server Actions', () => {
 
   describe('deleteTask', () => {
     it('should delete a task', async () => {
-      const { deleteTask } = await import('../task')
-      ;(prisma.task.delete as jest.Mock).mockResolvedValue(mockTask)
+      mockDelete.mockResolvedValue(mockTask)
 
+      const { deleteTask } = await import('../task')
       const result = await deleteTask('task-1')
 
       expect(result.success).toBe(true)
-      expect(prisma.task.delete).toHaveBeenCalledWith({
+      expect(mockDelete).toHaveBeenCalledWith({
         where: { id: 'task-1' }
       })
     })
 
     it('should handle deletion errors', async () => {
-      const { deleteTask } = await import('../task')
-      ;(prisma.task.delete as jest.Mock).mockRejectedValue(new Error('Delete failed'))
+      mockDelete.mockRejectedValue(new Error('Delete failed'))
 
+      const { deleteTask } = await import('../task')
       const result = await deleteTask('task-1')
 
       expect(result.success).toBe(false)
@@ -191,9 +202,11 @@ describe('Task Server Actions', () => {
 
   describe('updateTasksOrder', () => {
     it('should update multiple task orders', async () => {
-      const { updateTasksOrder } = await import('../task')
-      ;(prisma.$transaction as jest.Mock).mockResolvedValue([])
+      // updateTasksOrder first calls findMany to check existing tasks
+      mockFindMany.mockResolvedValue([{ id: 'task-1' }, { id: 'task-2' }])
+      mockTransaction.mockResolvedValue([])
 
+      const { updateTasksOrder } = await import('../task')
       const updates = [
         { id: 'task-1', columnId: 'in_progress', order: 0 },
         { id: 'task-2', columnId: 'in_progress', order: 1 }
@@ -205,9 +218,11 @@ describe('Task Server Actions', () => {
     })
 
     it('should handle transaction errors', async () => {
-      const { updateTasksOrder } = await import('../task')
-      ;(prisma.$transaction as jest.Mock).mockRejectedValue(new Error('Transaction failed'))
+      // First findMany succeeds, then transaction fails
+      mockFindMany.mockResolvedValue([{ id: 'task-1' }])
+      mockTransaction.mockRejectedValue(new Error('Transaction failed'))
 
+      const { updateTasksOrder } = await import('../task')
       const result = await updateTasksOrder(mockProjectId, [
         { id: 'task-1', columnId: 'todo', order: 0 }
       ])

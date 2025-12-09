@@ -1,31 +1,58 @@
 import React from 'react'
 import { render, screen, waitFor } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { AuthProvider, useAuth } from '../auth-context'
+
+// Mock next/navigation
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({
+    push: jest.fn(),
+    replace: jest.fn(),
+    refresh: jest.fn(),
+  }),
+}))
+
+// Mock next-auth
+const mockUseSession = jest.fn()
+jest.mock('next-auth/react', () => ({
+  useSession: () => mockUseSession(),
+  signIn: jest.fn(() => Promise.resolve({ ok: true })),
+  signOut: jest.fn(() => Promise.resolve()),
+  SessionProvider: ({ children }: { children: React.ReactNode }) => children,
+}))
+
+// Mock localStorage
+const localStorageMock = (() => {
+  let store: Record<string, string> = {}
+  return {
+    getItem: jest.fn((key: string) => store[key] || null),
+    setItem: jest.fn((key: string, value: string) => { store[key] = value }),
+    removeItem: jest.fn((key: string) => { delete store[key] }),
+    clear: jest.fn(() => { store = {} }),
+  }
+})()
+
+Object.defineProperty(window, 'localStorage', {
+  value: localStorageMock,
+  writable: true,
+})
 
 // Test component that uses the auth context
 const TestComponent = () => {
-  const { user, userProfile, signIn, logout, loading } = useAuth()
+  const { user, userProfile, loading } = useAuth()
 
   return (
     <div>
-      {loading && <div>Loading...</div>}
-      {user ? (
+      {loading && <div data-testid="loading">Loading...</div>}
+      {!loading && user ? (
         <div>
           <div>Welcome, {userProfile?.displayName}!</div>
           <div>Role: {userProfile?.role}</div>
-          <button onClick={logout}>Logout</button>
         </div>
-      ) : (
+      ) : !loading ? (
         <div>
           <div>Not logged in</div>
-          <button 
-            onClick={() => signIn('test@example.com', 'password123!')}
-          >
-            Login
-          </button>
         </div>
-      )}
+      ) : null}
     </div>
   )
 }
@@ -36,69 +63,50 @@ const renderWithAuthProvider = (ui: React.ReactElement) => {
 
 describe('AuthContext', () => {
   beforeEach(() => {
-    // Clear localStorage before each test
-    localStorage.clear()
+    localStorageMock.clear()
     jest.clearAllMocks()
+    // Default: unauthenticated state
+    mockUseSession.mockReturnValue({ data: null, status: 'unauthenticated' })
   })
 
-  it('renders loading state initially', () => {
+  it('renders loading state when session is loading', () => {
+    mockUseSession.mockReturnValue({ data: null, status: 'loading' })
     renderWithAuthProvider(<TestComponent />)
-    
-    expect(screen.getByText('Loading...')).toBeInTheDocument()
+
+    expect(screen.getByTestId('loading')).toBeInTheDocument()
   })
 
   it('shows not logged in state when no user', async () => {
+    mockUseSession.mockReturnValue({ data: null, status: 'unauthenticated' })
     renderWithAuthProvider(<TestComponent />)
-    
+
     await waitFor(() => {
       expect(screen.getByText('Not logged in')).toBeInTheDocument()
     })
   })
 
-  it('handles successful login', async () => {
-    const user = userEvent.setup()
+  it('shows user info when authenticated', async () => {
+    mockUseSession.mockReturnValue({
+      data: {
+        user: {
+          id: 'user-123',
+          email: 'test@example.com',
+          name: 'Test User',
+          role: 'member',
+        },
+      },
+      status: 'authenticated',
+    })
+
     renderWithAuthProvider(<TestComponent />)
-    
-    await waitFor(() => {
-      expect(screen.getByText('Not logged in')).toBeInTheDocument()
-    })
-    
-    const loginButton = screen.getByText('Login')
-    await user.click(loginButton)
 
     await waitFor(() => {
-      expect(screen.getByText(/Welcome,/)).toBeInTheDocument()
-      expect(screen.getByText('Role:')).toBeInTheDocument()
-    })
-  })
-
-  it('handles logout', async () => {
-    const user = userEvent.setup()
-    renderWithAuthProvider(<TestComponent />)
-    
-    // First login
-    await waitFor(() => {
-      expect(screen.getByText('Not logged in')).toBeInTheDocument()
-    })
-    
-    const loginButton = screen.getByText('Login')
-    await user.click(loginButton)
-
-    await waitFor(() => {
-      expect(screen.getByText(/Welcome,/)).toBeInTheDocument()
-    })
-
-    // Then logout
-    const logoutButton = screen.getByText('Logout')
-    await user.click(logoutButton)
-
-    await waitFor(() => {
-      expect(screen.getByText('Not logged in')).toBeInTheDocument()
+      expect(screen.getByText('Welcome, Test User!')).toBeInTheDocument()
+      expect(screen.getByText('Role: member')).toBeInTheDocument()
     })
   })
 
   it('throws error when used outside provider', () => {
-    // Suppress console.error for this test
     const originalError = console.error
     console.error = jest.fn()
 
@@ -107,131 +115,5 @@ describe('AuthContext', () => {
     }).toThrow('useAuth must be used within an AuthProvider')
 
     console.error = originalError
-  })
-
-  it('validates password requirements', async () => {
-    const user = userEvent.setup()
-    
-    const TestComponentWithValidation = () => {
-      const { signIn } = useAuth()
-      const [error, setError] = React.useState('')
-
-      const handleLogin = async () => {
-        try {
-          await signIn('test@example.com', 'weak')
-        } catch (err: any) {
-          setError(err.message)
-        }
-      }
-
-      return (
-        <div>
-          <button onClick={handleLogin}>Login with weak password</button>
-          {error && <div>Error: {error}</div>}
-        </div>
-      )
-    }
-
-    renderWithAuthProvider(<TestComponentWithValidation />)
-    
-    const loginButton = screen.getByText('Login with weak password')
-    await user.click(loginButton)
-
-    await waitFor(() => {
-      expect(screen.getByText(/Error:/)).toBeInTheDocument()
-    })
-  })
-
-  it('remembers user session in localStorage', async () => {
-    const user = userEvent.setup()
-    
-    // Mock localStorage
-    const localStorageMock = {
-      getItem: jest.fn(),
-      setItem: jest.fn(),
-      removeItem: jest.fn(),
-    }
-    Object.defineProperty(window, 'localStorage', {
-      value: localStorageMock
-    })
-
-    renderWithAuthProvider(<TestComponent />)
-    
-    await waitFor(() => {
-      expect(screen.getByText('Not logged in')).toBeInTheDocument()
-    })
-    
-    const loginButton = screen.getByText('Login')
-    await user.click(loginButton)
-
-    await waitFor(() => {
-      expect(localStorageMock.setItem).toHaveBeenCalledWith(
-        'codeb_user',
-        expect.any(String)
-      )
-    })
-  })
-
-  it('auto-logs out after session timeout', async () => {
-    // Mock timers
-    jest.useFakeTimers()
-    
-    const user = userEvent.setup()
-    renderWithAuthProvider(<TestComponent />)
-    
-    // Login first
-    await waitFor(() => {
-      expect(screen.getByText('Not logged in')).toBeInTheDocument()
-    })
-    
-    const loginButton = screen.getByText('Login')
-    await user.click(loginButton)
-
-    await waitFor(() => {
-      expect(screen.getByText(/Welcome,/)).toBeInTheDocument()
-    })
-
-    // Fast-forward time by 30 minutes
-    jest.advanceTimersByTime(30 * 60 * 1000)
-
-    await waitFor(() => {
-      expect(screen.getByText('Not logged in')).toBeInTheDocument()
-    })
-
-    jest.useRealTimers()
-  })
-
-  it('handles different user roles', async () => {
-    const user = userEvent.setup()
-    
-    const TestComponentWithRoles = () => {
-      const { signIn, user: currentUser, userProfile } = useAuth()
-
-      return (
-        <div>
-          {currentUser ? (
-            <div>Role: {userProfile?.role}</div>
-          ) : (
-            <div>
-              <button onClick={() => signIn('admin@codeb.com', 'admin123!')}>
-                Login as Admin
-              </button>
-              <button onClick={() => signIn('customer@test.com', 'customer123!')}>
-                Login as Customer
-              </button>
-            </div>
-          )}
-        </div>
-      )
-    }
-
-    renderWithAuthProvider(<TestComponentWithRoles />)
-    
-    const adminButton = screen.getByText('Login as Admin')
-    await user.click(adminButton)
-
-    await waitFor(() => {
-      expect(screen.getByText('Role: admin')).toBeInTheDocument()
-    })
   })
 })

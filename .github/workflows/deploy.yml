@@ -113,7 +113,7 @@ jobs:
         run: npx prisma generate
 
       - name: Run Tests
-        run: npm test -- --passWithNoTests --coverage || true
+        run: npm test -- --passWithNoTests --coverage
         env:
           NODE_ENV: test
 

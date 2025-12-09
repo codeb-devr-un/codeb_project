@@ -3,6 +3,18 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import ChatInput from '../chat/ChatInput'
 
+// Mock framer-motion to avoid issues with whileHover/whileTap props
+jest.mock('framer-motion', () => ({
+  motion: {
+    button: ({ children, whileHover, whileTap, ...props }: any) => (
+      <button {...props}>{children}</button>
+    ),
+    div: ({ children, initial, animate, exit, ...props }: any) => (
+      <div {...props}>{children}</div>
+    ),
+  },
+}))
+
 describe('ChatInput', () => {
   const mockOnSend = jest.fn()
   const mockOnTyping = jest.fn()
