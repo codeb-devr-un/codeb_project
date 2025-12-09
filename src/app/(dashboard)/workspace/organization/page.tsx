@@ -7,10 +7,11 @@ import { DndContext, DragEndEvent, DragOverlay, closestCenter } from '@dnd-kit/c
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Users, UserPlus, Settings, Search, Lightbulb } from 'lucide-react'
+import { Users, UserPlus, Settings, Search, Lightbulb, Link2 } from 'lucide-react'
 import DepartmentColumn from '@/components/organization/DepartmentColumn'
 import MemberCard from '@/components/organization/MemberCard'
 import DepartmentManageModal from '@/components/organization/DepartmentManageModal'
+import InviteCodeModal from '@/components/workspace/InviteCodeModal'
 import { customToast as toast } from '@/components/notification/NotificationToast'
 import { useWorkspace } from '@/lib/workspace-context'
 
@@ -20,6 +21,7 @@ export default function OrganizationPage() {
     const [loading, setLoading] = useState(true)
     const [activeMember, setActiveMember] = useState<any>(null)
     const [isDeptManageOpen, setIsDeptManageOpen] = useState(false)
+    const [isInviteCodeOpen, setIsInviteCodeOpen] = useState(false)
     const [searchQuery, setSearchQuery] = useState('')
 
     useEffect(() => {
@@ -136,6 +138,14 @@ export default function OrganizationPage() {
                 </div>
 
                 <div className="flex items-center gap-3">
+                    <Button
+                        variant="outline"
+                        onClick={() => setIsInviteCodeOpen(true)}
+                        className="rounded-xl h-10 bg-lime-50 border-lime-200 hover:bg-lime-100 hover:border-lime-300 text-lime-700 transition-all"
+                    >
+                        <Link2 className="w-4 h-4 mr-2" />
+                        초대 코드
+                    </Button>
                     <Button
                         variant="outline"
                         onClick={() => setIsDeptManageOpen(true)}
@@ -255,6 +265,16 @@ export default function OrganizationPage() {
                 isOpen={isDeptManageOpen}
                 onClose={() => setIsDeptManageOpen(false)}
             />
+
+            {/* 초대 코드 모달 */}
+            {currentWorkspace && (
+                <InviteCodeModal
+                    isOpen={isInviteCodeOpen}
+                    onClose={() => setIsInviteCodeOpen(false)}
+                    workspaceId={currentWorkspace.id}
+                    workspaceName={currentWorkspace.name}
+                />
+            )}
         </div>
     )
 }
