@@ -2,6 +2,8 @@
 // Project Member Delete API - 프로젝트 멤버 제외
 // =============================================================================
 
+export const dynamic = 'force-dynamic'
+
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerSession } from 'next-auth/next'

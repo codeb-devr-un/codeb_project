@@ -3,6 +3,8 @@
 // TeamMember 기반으로 워크스페이스별 부서 관리 지원
 // =============================================================================
 
+export const dynamic = 'force-dynamic'
+
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerSession } from 'next-auth/next'

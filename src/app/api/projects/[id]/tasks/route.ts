@@ -4,6 +4,8 @@
 // CVE-CB-009: Input Validation with Zod
 // =============================================================================
 
+export const dynamic = 'force-dynamic'
+
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth/next'
 import { authOptions } from '@/lib/auth-options'

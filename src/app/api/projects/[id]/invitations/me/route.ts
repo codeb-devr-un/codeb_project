@@ -2,6 +2,8 @@
 // My Project Invitation API - Check if current user has pending invitation
 // =============================================================================
 
+export const dynamic = 'force-dynamic'
+
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerSession } from 'next-auth/next'

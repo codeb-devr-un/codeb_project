@@ -2,6 +2,8 @@
 // Project Members API - 프로젝트 멤버 조회
 // =============================================================================
 
+export const dynamic = 'force-dynamic'
+
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerSession } from 'next-auth/next'

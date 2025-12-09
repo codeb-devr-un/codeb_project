@@ -2,6 +2,8 @@
 // Workspace Team API - 개별 팀(부서) 조회/수정/삭제
 // =============================================================================
 
+export const dynamic = 'force-dynamic'
+
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerSession } from 'next-auth/next'

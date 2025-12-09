@@ -2,6 +2,8 @@
 // Workspace Features API - CVE-CB-005 Fixed: Secure Logging
 // =============================================================================
 
+export const dynamic = 'force-dynamic'
+
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth/next'
 import { authOptions } from '@/lib/auth-options'

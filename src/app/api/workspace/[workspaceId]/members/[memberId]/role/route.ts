@@ -2,6 +2,8 @@
 // Member Role API - CVE-CB-005 Fixed: Secure Logging
 // =============================================================================
 
+export const dynamic = 'force-dynamic'
+
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerSession } from 'next-auth/next'

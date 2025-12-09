@@ -25,11 +25,13 @@ export const authOptions: NextAuthOptions = {
             },
             async authorize(credentials) {
                 if (!credentials?.email || !credentials?.password) {
-                    devLog('[Auth] Missing credentials')
+                    console.log('[Auth] Missing credentials')
                     return null
                 }
 
                 try {
+                    console.log(`[Auth] Attempting login for: ${credentials.email}`)
+
                     // Direct database lookup instead of API call to avoid loops
                     const user = await prisma.user.findUnique({
                         where: { email: credentials.email },
@@ -37,13 +39,13 @@ export const authOptions: NextAuthOptions = {
                     })
 
                     if (!user) {
-                        devLog(`[Auth] User not found: ${credentials.email}`)
+                        console.log(`[Auth] User not found: ${credentials.email}`)
                         return null
                     }
 
                     // Note: In a real production app, verify password with bcrypt
                     // For development/testing, we accept any password for seeded users
-                    devLog(`[Auth] User authenticated: ${user.email}`)
+                    console.log(`[Auth] User authenticated: ${user.email}`)
 
                     return {
                         id: user.id,
@@ -53,7 +55,7 @@ export const authOptions: NextAuthOptions = {
                         image: user.avatar,
                     }
                 } catch (error) {
-                    devLog(`[Auth] Authorize error: ${error}`)
+                    console.error(`[Auth] Authorize error:`, error)
                     return null
                 }
             }
