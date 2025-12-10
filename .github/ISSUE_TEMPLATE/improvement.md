@@ -1,7 +1,7 @@
 ---
 name: 개선 사항
 about: 기존 기능의 개선이나 리팩토링을 제안해주세요!
-title: "[개선] "
+title: "[Improvement] "
 labels: improvement
 assignees: ''
 ---
