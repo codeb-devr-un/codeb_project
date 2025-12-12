@@ -208,7 +208,7 @@ jobs:
           CPUS="${{ steps.vars.outputs.cpus }}"
           APP_NAME="${{ env.APP_NAME }}"
 
-          mkdir -p /etc/containers/systemd
+          sudo mkdir -p /etc/containers/systemd
 
           # Create Quadlet file using printf to avoid heredoc issues
           printf '%s\n' \
@@ -240,10 +240,10 @@ jobs:
             "" \
             "[Install]" \
             "WantedBy=multi-user.target default.target" \
-            > /etc/containers/systemd/${CONTAINER_NAME}.container
+            | sudo tee /etc/containers/systemd/${CONTAINER_NAME}.container > /dev/null
 
           echo "Quadlet config created:"
-          cat /etc/containers/systemd/${CONTAINER_NAME}.container
+          sudo cat /etc/containers/systemd/${CONTAINER_NAME}.container
 
       - name: Verify env file exists
         run: |
@@ -257,22 +257,22 @@ jobs:
               "# WorkB CMS Environment" \
               "NODE_ENV=production" \
               "PORT=3000" \
-              > "$ENV_FILE"
+              | sudo tee "$ENV_FILE" > /dev/null
             echo "Please update $ENV_FILE with proper values!"
           else
             echo "Env file exists: $ENV_FILE"
             echo "Env file contents (sensitive values hidden):"
-            grep -v -E "(PASSWORD|SECRET|KEY|TOKEN)" "$ENV_FILE" || true
+            sudo grep -v -E "(PASSWORD|SECRET|KEY|TOKEN)" "$ENV_FILE" || true
           fi
 
       - name: Stop existing container
         run: |
           CONTAINER_NAME="${{ steps.vars.outputs.container_name }}"
           echo "Stopping existing container..."
-          systemctl stop ${CONTAINER_NAME}.service 2>/dev/null || true
-          systemctl reset-failed ${CONTAINER_NAME}.service 2>/dev/null || true
-          podman stop ${CONTAINER_NAME} 2>/dev/null || true
-          podman rm -f ${CONTAINER_NAME} 2>/dev/null || true
+          sudo systemctl stop ${CONTAINER_NAME}.service 2>/dev/null || true
+          sudo systemctl reset-failed ${CONTAINER_NAME}.service 2>/dev/null || true
+          sudo podman stop ${CONTAINER_NAME} 2>/dev/null || true
+          sudo podman rm -f ${CONTAINER_NAME} 2>/dev/null || true
           echo "Existing container stopped"
 
       - name: Reload systemd and start service
@@ -281,28 +281,28 @@ jobs:
           CONTAINER_NAME="${{ steps.vars.outputs.container_name }}"
           echo "Deploying ${CONTAINER_NAME}..."
 
-          systemctl daemon-reload
+          sudo systemctl daemon-reload
 
           echo "Available service files:"
-          ls -la /run/systemd/generator/${CONTAINER_NAME}.service 2>/dev/null || echo "No generated service yet"
+          sudo ls -la /run/systemd/generator/${CONTAINER_NAME}.service 2>/dev/null || echo "No generated service yet"
 
-          if ! systemctl start ${CONTAINER_NAME}.service; then
+          if ! sudo systemctl start ${CONTAINER_NAME}.service; then
             echo "Service failed to start!"
             echo ""
             echo "=== systemctl status ==="
-            systemctl status ${CONTAINER_NAME}.service --no-pager -l || true
+            sudo systemctl status ${CONTAINER_NAME}.service --no-pager -l || true
             echo ""
             echo "=== journalctl logs ==="
-            journalctl -xeu ${CONTAINER_NAME}.service --no-pager -n 100 || true
+            sudo journalctl -xeu ${CONTAINER_NAME}.service --no-pager -n 100 || true
             echo ""
             echo "=== Quadlet file ==="
-            cat /etc/containers/systemd/${CONTAINER_NAME}.container || true
+            sudo cat /etc/containers/systemd/${CONTAINER_NAME}.container || true
             echo ""
             echo "=== Env file (sanitized) ==="
-            grep -v -E "(PASSWORD|SECRET|KEY|TOKEN)" /etc/containers/systemd/${CONTAINER_NAME}.env 2>/dev/null || echo "No env file"
+            sudo grep -v -E "(PASSWORD|SECRET|KEY|TOKEN)" /etc/containers/systemd/${CONTAINER_NAME}.env 2>/dev/null || echo "No env file"
             echo ""
             echo "=== Podman images ==="
-            podman images | grep ${{ env.APP_NAME }} || true
+            sudo podman images | grep ${{ env.APP_NAME }} || true
             exit 1
           fi
 
@@ -317,16 +317,16 @@ jobs:
           RETRY_COUNT=0
 
           echo "Container status:"
-          podman ps -a | grep ${CONTAINER_NAME} || true
+          sudo podman ps -a | grep ${CONTAINER_NAME} || true
 
-          if ! podman ps --format "{{.Names}}" | grep -q "^${CONTAINER_NAME}$"; then
+          if ! sudo podman ps --format "{{.Names}}" | grep -q "^${CONTAINER_NAME}$"; then
             echo "Container is not running!"
             echo ""
             echo "=== Container logs ==="
-            podman logs ${CONTAINER_NAME} 2>&1 | tail -100 || true
+            sudo podman logs ${CONTAINER_NAME} 2>&1 | tail -100 || true
             echo ""
             echo "=== Podman inspect ==="
-            podman inspect ${CONTAINER_NAME} 2>&1 | tail -50 || true
+            sudo podman inspect ${CONTAINER_NAME} 2>&1 | tail -50 || true
             exit 1
           fi
 
@@ -350,13 +350,13 @@ jobs:
             echo "Last response: $response"
             echo ""
             echo "=== Container logs ==="
-            podman logs ${CONTAINER_NAME} 2>&1 | tail -100
+            sudo podman logs ${CONTAINER_NAME} 2>&1 | tail -100
           fi
 
       - name: Enable service on boot
         run: |
           CONTAINER_NAME="${{ steps.vars.outputs.container_name }}"
-          systemctl enable ${CONTAINER_NAME}.service 2>/dev/null || true
+          sudo systemctl enable ${CONTAINER_NAME}.service 2>/dev/null || true
           echo "Service enabled for auto-start"
 
       - name: Show deployment info
@@ -381,19 +381,19 @@ jobs:
           echo "URL: ${URL}"
           echo ""
           echo "=== Service Status ==="
-          systemctl is-active ${CONTAINER_NAME}.service || true
+          sudo systemctl is-active ${CONTAINER_NAME}.service || true
           echo ""
           echo "=== Running Containers ==="
-          podman ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep -E "(NAMES|${{ env.APP_NAME }})" || true
+          sudo podman ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep -E "(NAMES|${{ env.APP_NAME }})" || true
 
       - name: Cleanup old images
         if: success()
         run: |
           echo "Cleaning up old images..."
-          podman images localhost/${{ env.APP_NAME }} --format "{{.ID}} {{.CreatedAt}}" | \
+          sudo podman images localhost/${{ env.APP_NAME }} --format "{{.ID}} {{.CreatedAt}}" | \
             sort -k2 -r | tail -n +6 | awk '{print $1}' | \
-            xargs -r podman rmi 2>/dev/null || true
-          podman image prune -f 2>/dev/null || true
+            xargs -r sudo podman rmi 2>/dev/null || true
+          sudo podman image prune -f 2>/dev/null || true
           echo "Cleanup complete!"
 
   notify:
