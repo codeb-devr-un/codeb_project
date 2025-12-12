@@ -37,14 +37,16 @@ export default function DockNavigation() {
         { href: '/projects', label: '프로젝트', icon: 'projects' },
 
         // HR
-        { href: '/hr/attendance', label: '근태 관리', icon: 'attendance' },
+        { href: '/hr', label: '근태 관리', icon: 'calendar' },
+        { href: '/hr/attendance', label: '출퇴근 기록', icon: 'attendance' },
         { href: '/hr/leave', label: '휴가 관리', icon: 'vacation' },
 
         // Finance
-        { href: '/finance/expenses', label: '지출 결의', icon: 'finance' },
+        { href: '/finance/expenses', label: '재무 관리', icon: 'finance' },
         { href: '/finance/corporate-cards', label: '법인카드', icon: 'card' },
 
         // Groupware
+        { href: '/groupware/announcements', label: '공지사항', icon: 'announcements' },
         { href: '/groupware/board', label: '게시판', icon: 'board' },
         { href: '/chat', label: '메신저', icon: 'chat' },
 
