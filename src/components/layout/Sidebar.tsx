@@ -178,9 +178,10 @@ export default function Sidebar() {
     if (isFeatureEnabled('attendanceEnabled')) {
       groupwareItems.push({ href: '/hr', label: '근태 관리', icon: 'calendar' })
     }
-    if (isFeatureEnabled('financeEnabled')) {
-      groupwareItems.push({ href: '/finance/expenses', label: '재무 관리', icon: 'finance' })
-    }
+    // 재무 기능 제거됨 (2024-12)
+    // if (isFeatureEnabled('financeEnabled')) {
+    //   groupwareItems.push({ href: '/finance/expenses', label: '재무 관리', icon: 'finance' })
+    // }
 
     if (groupwareItems.length > 0) {
       groups.push({

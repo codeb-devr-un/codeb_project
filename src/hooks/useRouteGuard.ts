@@ -5,8 +5,6 @@ import { useRouter, usePathname } from 'next/navigation'
 import { useWorkspace } from '@/lib/workspace-context'
 import {
   isAdminRoute,
-  isHRRoute,
-  isFinanceRoute,
   ROUTES,
 } from '@/config/routes'
 
@@ -118,11 +116,9 @@ export function useAutoRouteGuard(): RouteGuardResult {
 
   if (pathname && isAdminRoute(pathname)) {
     options = { allowedRoles: ['admin'] }
-  } else if (pathname && isHRRoute(pathname)) {
-    options = { requiredFeature: 'HR_ADMIN' }
-  } else if (pathname && isFinanceRoute(pathname)) {
-    options = { requiredFeature: 'FINANCE_ADMIN' }
   }
+  // HR은 이제 모든 멤버 접근 가능 (페이지 내부에서 역할별 제한)
+  // Finance는 제거됨
 
   return useRouteGuard(options)
 }

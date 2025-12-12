@@ -47,16 +47,14 @@ export const PROTECTED_ROUTES = {
     '/groupware',
     '/automation',
     '/marketing',
+    '/hr',  // 근태관리 - 일반 직원도 본인 정보 입력 가능
   ],
 
   // OWNER, ADMIN만
   admin: ['/settings', '/users', '/workspace/organization'],
 
-  // OWNER, HR_ADMIN만
-  hr: ['/hr'],
-
-  // OWNER, FINANCE_ADMIN만
-  finance: ['/finance', '/contracts', '/invoices'],
+  // 재무 기능 제거됨 (2024-12)
+  // finance: ['/finance', '/contracts', '/invoices'],
 }
 
 // 라우트 경로 상수
@@ -172,8 +170,6 @@ export function isProtectedRoute(pathname: string): boolean {
   const allProtectedRoutes = [
     ...PROTECTED_ROUTES.member,
     ...PROTECTED_ROUTES.admin,
-    ...PROTECTED_ROUTES.hr,
-    ...PROTECTED_ROUTES.finance,
   ]
 
   return allProtectedRoutes.some(
@@ -192,18 +188,16 @@ export function isAdminRoute(pathname: string): boolean {
 
 /**
  * 주어진 경로가 HR 라우트인지 확인
+ * HR은 이제 모든 멤버가 접근 가능 (페이지 내부에서 역할별 기능 제한)
  */
 export function isHRRoute(pathname: string): boolean {
-  return PROTECTED_ROUTES.hr.some(
-    (route) => pathname === route || pathname.startsWith(`${route}/`)
-  )
+  return pathname === '/hr' || pathname.startsWith('/hr/')
 }
 
 /**
  * 주어진 경로가 Finance 라우트인지 확인
+ * 재무 기능 제거됨 (2024-12) - 항상 false 반환
  */
 export function isFinanceRoute(pathname: string): boolean {
-  return PROTECTED_ROUTES.finance.some(
-    (route) => pathname === route || pathname.startsWith(`${route}/`)
-  )
+  return false
 }

@@ -173,7 +173,7 @@ export interface LeaveBalance {
   sickRemaining: number
 }
 
-export type HRTab = 'attendance' | 'profile' | 'payroll' | 'leave' | 'stats' | 'settings'
+export type HRTab = 'attendance' | 'profile' | 'payroll' | 'leave' | 'stats' | 'export' | 'settings'
 export type UserRole = 'admin' | 'hr' | 'manager' | 'employee'
 
 // ============================================
