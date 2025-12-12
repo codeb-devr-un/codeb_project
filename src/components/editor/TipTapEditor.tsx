@@ -102,7 +102,7 @@ export default function TipTapEditor({
         },
         editorProps: {
             attributes: {
-                class: 'prose prose-sm sm:prose max-w-none focus:outline-none min-h-[200px] p-4',
+                class: 'prose prose-sm sm:prose max-w-none focus:outline-none min-h-[200px] p-4 [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:mt-6 [&_h1]:mb-4 [&_h2]:text-xl [&_h2]:font-bold [&_h2]:mt-5 [&_h2]:mb-3 [&_h3]:text-lg [&_h3]:font-bold [&_h3]:mt-4 [&_h3]:mb-2 [&_ul]:list-disc [&_ul]:ml-6 [&_ul]:my-2 [&_ol]:list-decimal [&_ol]:ml-6 [&_ol]:my-2 [&_li]:my-1 [&_blockquote]:border-l-4 [&_blockquote]:border-gray-300 [&_blockquote]:pl-4 [&_blockquote]:my-4 [&_blockquote]:italic [&_blockquote]:text-gray-600 [&_code]:bg-gray-100 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-sm [&_code]:font-mono [&_code]:text-pink-600 [&_mark]:bg-yellow-200 [&_mark]:px-0.5',
             },
         },
     })
@@ -308,7 +308,7 @@ export function TipTapViewer({ content, className = '' }: { content: string; cla
         immediatelyRender: false, // Fix SSR hydration mismatch
         editorProps: {
             attributes: {
-                class: 'prose prose-sm sm:prose max-w-none',
+                class: 'prose prose-sm sm:prose max-w-none [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:mt-6 [&_h1]:mb-4 [&_h2]:text-xl [&_h2]:font-bold [&_h2]:mt-5 [&_h2]:mb-3 [&_h3]:text-lg [&_h3]:font-bold [&_h3]:mt-4 [&_h3]:mb-2 [&_ul]:list-disc [&_ul]:ml-6 [&_ul]:my-2 [&_ol]:list-decimal [&_ol]:ml-6 [&_ol]:my-2 [&_li]:my-1 [&_blockquote]:border-l-4 [&_blockquote]:border-gray-300 [&_blockquote]:pl-4 [&_blockquote]:my-4 [&_blockquote]:italic [&_blockquote]:text-gray-600 [&_code]:bg-gray-100 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-sm [&_code]:font-mono [&_code]:text-pink-600 [&_mark]:bg-yellow-200 [&_mark]:px-0.5',
             },
         },
     })
