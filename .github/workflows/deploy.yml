@@ -256,32 +256,45 @@ jobs:
         run: |
           NETWORK_NAME="workb-network"
 
-          echo "Killing any stale dnsmasq processes..."
+          echo "=== Comprehensive network cleanup ==="
+
+          # 1. 모든 dnsmasq 프로세스 종료
+          echo "Killing all dnsmasq processes..."
           sudo pkill -9 dnsmasq 2>/dev/null || true
+          sleep 3
+
+          # 2. CNI 관련 모든 파일 정리
+          echo "Cleaning up all CNI network files..."
+          sudo rm -rf /var/lib/cni/networks/* 2>/dev/null || true
+          sudo rm -rf /run/cni/* 2>/dev/null || true
+          sudo rm -rf /var/run/cni/* 2>/dev/null || true
+
+          # 3. 10.89.0.1 포트를 사용 중인 프로세스 확인 및 종료
+          echo "Checking for processes using 10.89.0.1..."
+          PIDS=$(sudo lsof -ti:53 2>/dev/null | head -5) || true
+          if [ -n "$PIDS" ]; then
+            echo "Killing processes: $PIDS"
+            echo "$PIDS" | xargs -r sudo kill -9 2>/dev/null || true
+          fi
           sleep 2
 
-          echo "Cleaning up CNI network files..."
-          sudo rm -rf /var/lib/cni/networks/${NETWORK_NAME} 2>/dev/null || true
-          sudo rm -rf /run/cni/* 2>/dev/null || true
+          # 4. 기존 네트워크 완전 삭제
+          echo "Removing existing network..."
+          sudo podman network rm -f ${NETWORK_NAME} 2>/dev/null || true
+          sudo podman network rm -f podman 2>/dev/null || true
 
-          echo "Checking if network exists..."
-          if sudo podman network exists ${NETWORK_NAME} 2>/dev/null; then
-            echo "Network exists, removing stale containers..."
-            # 해당 네트워크에 연결된 모든 컨테이너 중지 및 삭제
-            for container in $(sudo podman ps -aq --filter network=${NETWORK_NAME} 2>/dev/null); do
-              echo "Stopping container: $container"
-              sudo podman stop -t 5 $container 2>/dev/null || true
-              sudo podman rm -f $container 2>/dev/null || true
-            done
+          # 5. 새 네트워크 생성 (dnsname 플러그인 비활성화)
+          echo "Creating network without dnsname plugin..."
+          sudo podman network create ${NETWORK_NAME} \
+            --subnet 10.89.1.0/24 \
+            --gateway 10.89.1.1 \
+            --disable-dns \
+            2>/dev/null || true
 
-            echo "Recreating network..."
-            sudo podman network rm ${NETWORK_NAME} 2>/dev/null || true
-          fi
+          echo "Network configuration:"
+          sudo podman network inspect ${NETWORK_NAME} 2>/dev/null | head -30 || true
 
-          echo "Creating fresh network ${NETWORK_NAME}..."
-          sudo podman network create ${NETWORK_NAME} --subnet 10.89.1.0/24 2>/dev/null || true
-
-          echo "Network ${NETWORK_NAME} is ready"
+          echo "=== Network cleanup complete ==="
           sudo podman network ls
 
       - name: Build image with Podman
