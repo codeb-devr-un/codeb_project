@@ -27,7 +27,9 @@ import {
   DollarSign,
   BarChart3,
   Calendar,
-  FileText
+  FileText,
+  AlertCircle,
+  CheckCircle2
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -109,6 +111,14 @@ function WorkspaceCreateContent() {
   const [inviteCode, setInviteCode] = useState('')
   const [loading, setLoading] = useState(false)
 
+  // 중복 검사 상태
+  const [nameChecking, setNameChecking] = useState(false)
+  const [domainChecking, setDomainChecking] = useState(false)
+  const [nameError, setNameError] = useState<string | null>(null)
+  const [domainError, setDomainError] = useState<string | null>(null)
+  const [nameAvailable, setNameAvailable] = useState<boolean | null>(null)
+  const [domainAvailable, setDomainAvailable] = useState<boolean | null>(null)
+
   // 로그인 안된 사용자는 로그인 페이지로 리다이렉트
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -123,6 +133,58 @@ function WorkspaceCreateContent() {
       setMode('join')
     }
   }, [searchParams])
+
+  // 이름 중복 검사 (debounced)
+  useEffect(() => {
+    if (!companyName.trim() || companyName.trim().length < 2) {
+      setNameAvailable(null)
+      setNameError(null)
+      return
+    }
+
+    const timer = setTimeout(async () => {
+      setNameChecking(true)
+      try {
+        const response = await fetch(`/api/workspaces/check?name=${encodeURIComponent(companyName.trim())}`)
+        const data = await response.json()
+        setNameAvailable(data.nameAvailable)
+        setNameError(data.nameError || null)
+      } catch (error) {
+        setNameError('검사 중 오류가 발생했습니다.')
+        setNameAvailable(false)
+      } finally {
+        setNameChecking(false)
+      }
+    }, 500)
+
+    return () => clearTimeout(timer)
+  }, [companyName])
+
+  // 도메인 중복 검사 (debounced)
+  useEffect(() => {
+    if (!domain.trim() || domain.trim().length < 2) {
+      setDomainAvailable(null)
+      setDomainError(null)
+      return
+    }
+
+    const timer = setTimeout(async () => {
+      setDomainChecking(true)
+      try {
+        const response = await fetch(`/api/workspaces/check?domain=${encodeURIComponent(domain.trim())}`)
+        const data = await response.json()
+        setDomainAvailable(data.domainAvailable)
+        setDomainError(data.domainError || null)
+      } catch (error) {
+        setDomainError('검사 중 오류가 발생했습니다.')
+        setDomainAvailable(false)
+      } finally {
+        setDomainChecking(false)
+      }
+    }, 500)
+
+    return () => clearTimeout(timer)
+  }, [domain])
 
   // 세션 로딩 중이거나 인증 안됨
   if (status === 'loading' || status === 'unauthenticated') {
@@ -413,17 +475,47 @@ function WorkspaceCreateContent() {
                   <label className="block text-sm font-medium text-slate-700 mb-2">
                     회사 이름
                   </label>
-                  <Input
-                    type="text"
-                    value={companyName}
-                    onChange={(e) => {
-                      setCompanyName(e.target.value)
-                      const slug = e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '')
-                      setDomain(slug)
-                    }}
-                    placeholder="예: (주)코드비"
-                    autoFocus
-                  />
+                  <div className="relative">
+                    <Input
+                      type="text"
+                      value={companyName}
+                      onChange={(e) => {
+                        setCompanyName(e.target.value)
+                        const slug = e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '')
+                        setDomain(slug)
+                      }}
+                      placeholder="예: (주)코드비"
+                      autoFocus
+                      className={nameError ? 'border-red-300 focus:border-red-500' : nameAvailable ? 'border-green-300 focus:border-green-500' : ''}
+                    />
+                    {nameChecking && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
+                      </div>
+                    )}
+                    {!nameChecking && nameAvailable === true && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        <CheckCircle2 className="w-4 h-4 text-green-500" />
+                      </div>
+                    )}
+                    {!nameChecking && nameAvailable === false && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        <AlertCircle className="w-4 h-4 text-red-500" />
+                      </div>
+                    )}
+                  </div>
+                  {nameError && (
+                    <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      {nameError}
+                    </p>
+                  )}
+                  {nameAvailable === true && !nameChecking && (
+                    <p className="text-xs text-green-500 mt-1 flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3" />
+                      사용 가능한 이름입니다.
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">
@@ -431,14 +523,46 @@ function WorkspaceCreateContent() {
                   </label>
                   <div className="flex items-center gap-2">
                     <span className="text-slate-500 text-sm whitespace-nowrap">workb.net/</span>
-                    <Input
-                      type="text"
-                      value={domain}
-                      onChange={(e) => setDomain(e.target.value)}
-                      placeholder="company-name"
-                    />
+                    <div className="relative flex-1">
+                      <Input
+                        type="text"
+                        value={domain}
+                        onChange={(e) => setDomain(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                        placeholder="company-name"
+                        className={domainError ? 'border-red-300 focus:border-red-500' : domainAvailable ? 'border-green-300 focus:border-green-500' : ''}
+                      />
+                      {domainChecking && (
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                          <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
+                        </div>
+                      )}
+                      {!domainChecking && domainAvailable === true && (
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                          <CheckCircle2 className="w-4 h-4 text-green-500" />
+                        </div>
+                      )}
+                      {!domainChecking && domainAvailable === false && (
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                          <AlertCircle className="w-4 h-4 text-red-500" />
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <p className="text-xs text-slate-500 mt-2">영문 소문자와 숫자만 사용 가능합니다.</p>
+                  {domainError && (
+                    <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      {domainError}
+                    </p>
+                  )}
+                  {domainAvailable === true && !domainChecking && (
+                    <p className="text-xs text-green-500 mt-1 flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3" />
+                      사용 가능한 도메인입니다.
+                    </p>
+                  )}
+                  {!domainError && domainAvailable !== true && (
+                    <p className="text-xs text-slate-500 mt-1">영문 소문자, 숫자, 하이픈(-)만 사용 가능합니다.</p>
+                  )}
                 </div>
                 <div className="flex gap-2 pt-2">
                   <Button
@@ -454,7 +578,15 @@ function WorkspaceCreateContent() {
                     type="submit"
                     variant="limePrimary"
                     className="flex-1 rounded-xl"
-                    disabled={!companyName.trim() || !domain.trim() || loading}
+                    disabled={
+                      !companyName.trim() ||
+                      !domain.trim() ||
+                      loading ||
+                      nameChecking ||
+                      domainChecking ||
+                      nameAvailable === false ||
+                      domainAvailable === false
+                    }
                   >
                     {loading ? (
                       <>

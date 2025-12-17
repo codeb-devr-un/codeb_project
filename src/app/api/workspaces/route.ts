@@ -207,12 +207,21 @@ export async function POST(request: NextRequest) {
     const validTypes: WorkspaceType[] = ['ENTERPRISE', 'HR_ONLY', 'PROJECT_ONLY']
     const workspaceType: WorkspaceType = validTypes.includes(type as WorkspaceType) ? type as WorkspaceType : 'ENTERPRISE'
 
+    // 이름 중복 확인
+    const existingByName = await prisma.workspace.findFirst({
+      where: { name: { equals: name, mode: 'insensitive' } }
+    })
+
+    if (existingByName) {
+      return createErrorResponse('이미 사용 중인 워크스페이스 이름입니다. 다른 이름을 입력해주세요.', 400, 'NAME_EXISTS')
+    }
+
     // 도메인 중복 확인
-    const existingWorkspace = await prisma.workspace.findUnique({
+    const existingByDomain = await prisma.workspace.findUnique({
       where: { domain }
     })
 
-    if (existingWorkspace) {
+    if (existingByDomain) {
       return createErrorResponse('이미 사용 중인 도메인입니다. 다른 도메인을 선택해주세요.', 400, 'DOMAIN_EXISTS')
     }
 
