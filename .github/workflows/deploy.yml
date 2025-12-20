@@ -281,6 +281,10 @@ jobs:
             echo "url=worb-staging.codeb.kr" >> $GITHUB_OUTPUT
           fi
 
+      - name: Login to Container Registry
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | podman login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
+
       - name: Pull image from registry
         run: |
           echo "Pulling image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}"
