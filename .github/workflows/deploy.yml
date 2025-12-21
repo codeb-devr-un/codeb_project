@@ -103,7 +103,7 @@ jobs:
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ secrets.GHCR_PAT }}
 
       - name: Extract metadata
         id: meta
@@ -155,7 +155,7 @@ jobs:
 
       - name: Deploy to server
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GHCR_PAT }}
         run: |
           ssh -o StrictHostKeyChecking=no root@${{ env.DEPLOY_HOST }} << 'DEPLOY_SCRIPT'
             set -e
@@ -166,7 +166,7 @@ jobs:
             mkdir -p $XDG_RUNTIME_DIR
 
             # Login to GHCR
-            echo "${{ secrets.GITHUB_TOKEN }}" | podman login ghcr.io -u ${{ github.actor }} --password-stdin
+            echo "${{ secrets.GHCR_PAT }}" | podman login ghcr.io -u ${{ github.actor }} --password-stdin
 
             # Pull latest staging image
             podman pull ghcr.io/codeblabdev-max/workb:staging
@@ -214,7 +214,7 @@ jobs:
 
       - name: Deploy to server
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GHCR_PAT }}
         run: |
           ssh -o StrictHostKeyChecking=no root@${{ env.DEPLOY_HOST }} << 'DEPLOY_SCRIPT'
             set -e
@@ -225,7 +225,7 @@ jobs:
             mkdir -p $XDG_RUNTIME_DIR
 
             # Login to GHCR
-            echo "${{ secrets.GITHUB_TOKEN }}" | podman login ghcr.io -u ${{ github.actor }} --password-stdin
+            echo "${{ secrets.GHCR_PAT }}" | podman login ghcr.io -u ${{ github.actor }} --password-stdin
 
             # Pull latest production image
             podman pull ghcr.io/codeblabdev-max/workb:latest
