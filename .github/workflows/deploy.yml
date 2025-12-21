@@ -219,11 +219,11 @@ jobs:
           ENV="${{ needs.build.outputs.environment }}"
           MANIFEST="/home/codeb/config/port-manifest.yaml"
 
-          echo "🔍 Validating port $PORT for worb/$ENV"
+          echo "Validating port $PORT for worb/$ENV"
 
           # Check if manifest exists
           if [ ! -f "$MANIFEST" ]; then
-            echo "⚠️ Port manifest not found, skipping validation"
+            echo "Port manifest not found, skipping validation"
             echo "valid=true" >> $GITHUB_OUTPUT
             echo "port=$PORT" >> $GITHUB_OUTPUT
             exit 0
@@ -233,7 +233,7 @@ jobs:
           OWNER=$(grep -B5 "app: $PORT" "$MANIFEST" 2>/dev/null | grep -E "^  [a-zA-Z]" | tail -1 | tr -d ': ')
 
           if [ -n "$OWNER" ] && [ "$OWNER" != "worb" ]; then
-            echo "❌ PORT CONFLICT: Port $PORT is allocated to $OWNER in manifest"
+            echo "PORT CONFLICT: Port $PORT is allocated to $OWNER in manifest"
             echo "valid=false" >> $GITHUB_OUTPUT
             echo "port=$PORT" >> $GITHUB_OUTPUT
             exit 1
@@ -244,11 +244,11 @@ jobs:
           if [ -n "$ACTUAL_USER" ]; then
             PROCESS=$(echo "$ACTUAL_USER" | grep -oP 'users:\("K[^"]+' || echo "unknown")
             if ! echo "$PROCESS" | grep -qE "(worb|conmon|podman)"; then
-              echo "⚠️ Port $PORT in use by: $PROCESS"
+              echo "Port $PORT in use by: $PROCESS"
             fi
           fi
 
-          echo "✅ Port $PORT validated for worb/$ENV"
+          echo "Port $PORT validated for worb/$ENV"
           echo "valid=true" >> $GITHUB_OUTPUT
           echo "port=$PORT" >> $GITHUB_OUTPUT
 
@@ -273,8 +273,7 @@ jobs:
     steps:
       - name: Setup Podman environment
         run: |
-          # XDG_RUNTIME_DIR 디렉토리 생성 (podman rootless 모드 필요)
-          # Self-hosted runner의 홈 디렉토리 사용
+          # XDG_RUNTIME_DIR for podman rootless mode
           mkdir -p $HOME/.podman-runtime
           echo "XDG_RUNTIME_DIR=$HOME/.podman-runtime" >> $GITHUB_ENV
 
@@ -318,22 +317,22 @@ jobs:
           CURRENT_IMAGE=$(podman inspect ${CONTAINER_NAME} --format '{{.Image}}' 2>/dev/null || echo "")
           if [ -n "$CURRENT_IMAGE" ]; then
             echo "previous_image=${CURRENT_IMAGE}" >> $GITHUB_OUTPUT
-            echo "📦 Backed up current image: ${CURRENT_IMAGE}"
+            echo "Backed up current image: ${CURRENT_IMAGE}"
           else
             echo "previous_image=" >> $GITHUB_OUTPUT
-            echo "⚠️ No previous image to backup"
+            echo "No previous image to backup"
           fi
 
       - name: Run database migrations
         run: |
           CONTAINER_NAME="${{ steps.vars.outputs.container_name }}"
-          echo "🔄 Running Prisma migrations..."
+          echo "Running Prisma migrations..."
 
-          # 마이그레이션 실행 (컨테이너 내부에서)
+          # Run migration inside container
           podman run --rm \
             --env-file /etc/containers/systemd/${CONTAINER_NAME}.env \
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }} \
-            npx prisma migrate deploy 2>/dev/null || echo "⚠️ Migration skipped or already up to date"
+            npx prisma migrate deploy 2>/dev/null || echo "Migration skipped or already up to date"
 
       - name: Restart service via systemd/Quadlet
         run: |
@@ -342,7 +341,7 @@ jobs:
           systemctl daemon-reload
           systemctl stop ${CONTAINER_NAME}.service 2>/dev/null || true
 
-          # 안전한 컨테이너 종료: graceful stop (30초) 후 제거
+          # Graceful stop (30s) then remove
           podman stop ${CONTAINER_NAME} --time 30 2>/dev/null || true
           podman rm ${CONTAINER_NAME} 2>/dev/null || true
 
@@ -362,10 +361,10 @@ jobs:
           while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
             response=$(curl -sf -o /dev/null -w "%{http_code}" http://127.0.0.1:${PORT}/api/health 2>/dev/null || echo "000")
             if [ "$response" = "200" ]; then
-              echo "✅ Health check passed!"
-              # Centrifugo 연결 테스트
+              echo "Health check passed!"
+              # Centrifugo connection test
               echo "Testing Centrifugo connection..."
-              curl -sf http://ws.codeb.kr:8000/health 2>/dev/null && echo "✅ Centrifugo OK" || echo "⚠️ Centrifugo check skipped"
+              curl -sf http://ws.codeb.kr:8000/health 2>/dev/null && echo "Centrifugo OK" || echo "Centrifugo check skipped"
               exit 0
             fi
             RETRY_COUNT=$((RETRY_COUNT + 1))
@@ -373,22 +372,22 @@ jobs:
             sleep 3
           done
 
-          echo "❌ Health check failed after $MAX_RETRIES attempts"
+          echo "Health check failed after $MAX_RETRIES attempts"
           podman logs ${{ steps.vars.outputs.container_name }} --tail 100
 
-          # 자동 롤백 시도
+          # Auto rollback attempt
           PREVIOUS_IMAGE="${{ steps.backup.outputs.previous_image }}"
           if [ -n "$PREVIOUS_IMAGE" ]; then
-            echo "🔄 Attempting rollback to previous image..."
+            echo "Attempting rollback to previous image..."
             podman stop ${{ steps.vars.outputs.container_name }} --time 10 2>/dev/null || true
             podman rm ${{ steps.vars.outputs.container_name }} 2>/dev/null || true
 
-            # Quadlet 파일 복원
+            # Restore Quadlet file
             QUADLET_FILE="/etc/containers/systemd/${{ steps.vars.outputs.container_name }}.container"
             sed -i "s|^Image=.*|Image=${PREVIOUS_IMAGE}|" "$QUADLET_FILE"
             systemctl daemon-reload
             systemctl start ${{ steps.vars.outputs.container_name }}.service
-            echo "⚠️ Rolled back to: ${PREVIOUS_IMAGE}"
+            echo "Rolled back to: ${PREVIOUS_IMAGE}"
           fi
 
           exit 1
@@ -398,7 +397,7 @@ jobs:
         run: |
           echo ""
           echo "=========================================="
-          echo "📦 Deployment Summary"
+          echo "Deployment Summary"
           echo "=========================================="
           echo "Environment: ${{ env.ENVIRONMENT }}"
           echo "Container: ${{ steps.vars.outputs.container_name }}"
@@ -432,11 +431,11 @@ jobs:
       - name: Success Notification
         if: needs.deploy.result == 'success'
         run: |
-          echo "✅ Deployment successful!"
+          echo "Deployment successful!"
           # Add Slack/Discord webhook here if needed
 
       - name: Failure Notification
         if: needs.deploy.result == 'failure'
         run: |
-          echo "❌ Deployment failed!"
+          echo "Deployment failed!"
           echo "Check logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
