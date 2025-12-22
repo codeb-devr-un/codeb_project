@@ -102,7 +102,7 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
+          username: codeblabdev-max
           password: ${{ secrets.GHCR_PAT }}
 
       - name: Extract metadata
@@ -166,7 +166,7 @@ jobs:
             mkdir -p $XDG_RUNTIME_DIR
 
             # Login to GHCR
-            echo "${{ secrets.GHCR_PAT }}" | podman login ghcr.io -u ${{ github.actor }} --password-stdin
+            echo "${{ secrets.GHCR_PAT }}" | podman login ghcr.io -u codeblabdev-max --password-stdin
 
             # Pull latest staging image
             podman pull ghcr.io/codeblabdev-max/workb:staging
@@ -225,7 +225,7 @@ jobs:
             mkdir -p $XDG_RUNTIME_DIR
 
             # Login to GHCR
-            echo "${{ secrets.GHCR_PAT }}" | podman login ghcr.io -u ${{ github.actor }} --password-stdin
+            echo "${{ secrets.GHCR_PAT }}" | podman login ghcr.io -u codeblabdev-max --password-stdin
 
             # Pull latest production image
             podman pull ghcr.io/codeblabdev-max/workb:latest
